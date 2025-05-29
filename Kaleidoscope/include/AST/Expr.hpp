@@ -8,10 +8,10 @@ public:
     virtual ~Expr() = default;
 
     // Accept a visitor for this expression
-    virtual void accept(class ExprVisitor &visitor) = 0;
+    // virtual void accept(class ExprVisitor &visitor) = 0;
 
     // Get the type of the expression
-    virtual const char* getType() const = 0;
+    virtual const std::string getType() const = 0;
 
     // Get the string representation of the expression
     virtual std::string toString() const = 0;
@@ -23,9 +23,9 @@ class NumberExpr : public Expr {
 public:
     NumberExpr(double val) : value(val) {}
 
-    void accept(ExprVisitor &visitor) override;
+    // void accept(ExprVisitor &visitor) override;
 
-    const char* getType() const override {
+    const std::string getType() const override {
         return "Number";
     }
 
@@ -40,9 +40,9 @@ class VariableExpr : public Expr {
 public:
     VariableExpr(const std::string &varName) : name(varName) {}
 
-    void accept(ExprVisitor &visitor) override;
+    // void accept(ExprVisitor &visitor) override;
 
-    const char* getType() const override {
+    const std::string getType() const override {
         return "Variable";
     }
 
@@ -59,9 +59,9 @@ public:
     BinaryExpr(char op, std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs)
         : Op(op), LHS(std::move(lhs)), RHS(std::move(rhs)) {}
 
-    void accept(ExprVisitor &visitor) override;
+    // void accept(ExprVisitor &visitor) override;
 
-    const char* getType() const override {
+    const std::string getType() const override {
         return "Binary";
     }
 
@@ -78,9 +78,9 @@ public:
     CallExpr(const std::string &callee, std::vector<std::unique_ptr<Expr>> args)
         : callee(callee), args(std::move(args)) {}
 
-    void accept(ExprVisitor &visitor) override;
+    // void accept(ExprVisitor &visitor) override;
 
-    const char* getType() const override {
+    const std::string getType() const override {
         return "Call";
     }
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <iostream>
 #include <string>
 
@@ -9,6 +10,7 @@ enum Token : int {
     tok_open_paren = '(',
     tok_close_paren = ')',
     tok_comma = ',',
+    tok_semicolon = ';',
 
     tok_eof = -1,
 
@@ -35,9 +37,13 @@ public:
         return fCurTok;
     }
 
-    // Get the next token from standard input
-    Token getNextToken() {
+    Token advance() {
         return fCurTok = getTok();
+    }
+
+    void consume(Token tok) {
+        assert(fCurTok == tok && "Lexer::consume called with wrong token");
+        advance(); // Advance to the next token
     }
 
     // Get the identifier string if tok_identifier
