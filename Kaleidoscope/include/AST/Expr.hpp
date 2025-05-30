@@ -1,19 +1,21 @@
 #pragma once
+
 #include <memory>
 #include <string>
 #include <vector>
 
-class Expr {
+#include "Node.hpp"
+
+class Expr : public ASTNode {
 public:
     virtual ~Expr() = default;
 
-    // Accept a visitor for this expression
-    // virtual void accept(class ExprVisitor &visitor) = 0;
-
-    // Get the type of the expression
-    virtual const std::string getType() const = 0;
-
-    // Get the string representation of the expression
+    void accept(ASTVisitor &visitor) override = 0;
+    template <typename R>
+    R accept(ASTReturnVisitor<R>& visitor) {
+        assert(false && "accept not implemented for this node type");
+    }
+    const std::string getType() const override = 0;
     virtual std::string toString() const = 0;
 };
 
@@ -23,10 +25,19 @@ class NumberExpr : public Expr {
 public:
     NumberExpr(double val) : value(val) {}
 
-    // void accept(ExprVisitor &visitor) override;
+    void accept(ASTVisitor &visitor) override;
+
+    template<typename R>
+    R accept(ASTReturnVisitor<R> &visitor) {
+        return visitor.visitNumberExpr(*this);
+    }
 
     const std::string getType() const override {
         return "Number";
+    }
+
+    double getValue() const {
+        return value;
     }
 
     std::string toString() const override {
@@ -40,10 +51,19 @@ class VariableExpr : public Expr {
 public:
     VariableExpr(const std::string &varName) : name(varName) {}
 
-    // void accept(ExprVisitor &visitor) override;
+    void accept(ASTVisitor &visitor) override;
+    
+    template<typename R>
+    R accept(ASTReturnVisitor<R> &visitor) {
+        return visitor.visitVariableExpr(*this);
+    }
 
     const std::string getType() const override {
         return "Variable";
+    }
+
+    const std::string& getName() const {
+        return name;
     }
 
     std::string toString() const override {
@@ -59,14 +79,31 @@ public:
     BinaryExpr(char op, std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs)
         : Op(op), LHS(std::move(lhs)), RHS(std::move(rhs)) {}
 
-    // void accept(ExprVisitor &visitor) override;
+    void accept(ASTVisitor &visitor) override;
+
+    template<typename R>
+    R accept(ASTReturnVisitor<R> &visitor) {
+        return visitor.visitBinaryExpr(*this);
+    }
+
+    Expr* getLHS() const {
+        return LHS.get();
+    }
+
+    Expr* getRHS() const {
+        return RHS.get();
+    }
+
+    const char getOp() const {
+        return Op;
+    }
 
     const std::string getType() const override {
         return "Binary";
     }
 
     std::string toString() const override {
-        return "(" + LHS->toString() + " " + Op + " " + RHS->toString() + ")";
+        return "(" + LHS->toString() + " " + getOp() + " " + RHS->toString() + ")";
     }
 };
 
@@ -78,7 +115,28 @@ public:
     CallExpr(const std::string &callee, std::vector<std::unique_ptr<Expr>> args)
         : callee(callee), args(std::move(args)) {}
 
-    // void accept(ExprVisitor &visitor) override;
+    void accept(ASTVisitor &visitor) override;
+
+    template<typename R>
+    R accept(ASTReturnVisitor<R> &visitor) {
+        return visitor.visitCallExpr(*this);
+    }
+
+    std::vector<Expr*> getArgs() const {
+        std::vector<Expr*> argsOut;
+        for (const auto &arg : args) {
+            argsOut.push_back(arg.get());
+        }
+        return argsOut;
+    }
+
+    const std::string& getCalleeName() const {
+        return callee;
+    }
+
+    int getNumArgs() const {
+        return static_cast<int>(args.size());
+    }
 
     const std::string getType() const override {
         return "Call";

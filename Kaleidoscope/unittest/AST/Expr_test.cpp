@@ -1,17 +1,12 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include "AST/Expr.hpp"
-
-// Mock class for Expr using Google Mock
-class MockExpr : public Expr {
-public:
-    MOCK_METHOD(const std::string, getType, (), (const, override));
-    MOCK_METHOD(std::string, toString, (), (const, override));
-};
+#include "mocks/AST/MockExpr.hpp"
 
 // MockExpr tests
 TEST(MockExprTest, InterfaceTest) {
     MockExpr mock;
+
     EXPECT_CALL(mock, getType()).WillOnce(testing::Return("MockType"));
     EXPECT_CALL(mock, toString()).WillOnce(testing::Return("MockString"));
 
@@ -30,6 +25,11 @@ TEST(NumberExprTest, ToStringReturnsValue) {
     EXPECT_EQ(expr.toString(), std::to_string(3.14));
 }
 
+TEST(NumberExprTest, GetValueReturnsCorrectValue) {
+    NumberExpr expr(1.618);
+    EXPECT_EQ(expr.getValue(), 1.618);
+}
+
 // VariableExpr tests
 TEST(VariableExprTest, GetTypeReturnsVariable) {
     VariableExpr expr("foo");
@@ -39,6 +39,11 @@ TEST(VariableExprTest, GetTypeReturnsVariable) {
 TEST(VariableExprTest, ToStringReturnsName) {
     VariableExpr expr("bar");
     EXPECT_EQ(expr.toString(), "bar");
+}
+
+TEST(VariableExprTest, GetNameReturnsCorrectName) {
+    VariableExpr expr("baz");
+    EXPECT_EQ(expr.getName(), "baz");
 }
 
 // BinaryExpr tests
@@ -61,6 +66,27 @@ TEST(BinaryExprTest, ToStringWithVariable) {
     auto rhs = std::make_unique<NumberExpr>(5.0);
     BinaryExpr expr('-', std::move(lhs), std::move(rhs));
     EXPECT_EQ(expr.toString(), "(x - 5.000000)");
+}
+
+TEST(BinaryExprTest, GetLHSReturnsCorrectExpr) {
+    auto lhs = std::make_unique<NumberExpr>(3.0);
+    auto rhs = std::make_unique<NumberExpr>(4.0);
+    BinaryExpr expr('+', std::move(lhs), std::move(rhs));
+    EXPECT_EQ(expr.getLHS()->toString(), "3.000000");
+}
+
+TEST(BinaryExprTest, GetRHSReturnsCorrectExpr) {
+    auto lhs = std::make_unique<NumberExpr>(6.0);
+    auto rhs = std::make_unique<VariableExpr>("y");
+    BinaryExpr expr('/', std::move(lhs), std::move(rhs));
+    EXPECT_EQ(expr.getRHS()->toString(), "y");
+}
+
+TEST(BinaryExprTest, GetOpReturnsCorrectOperator) {
+    auto lhs = std::make_unique<NumberExpr>(8.0);
+    auto rhs = std::make_unique<NumberExpr>(2.0);
+    BinaryExpr expr('-', std::move(lhs), std::move(rhs));
+    EXPECT_EQ(expr.getOp(), '-');
 }
 
 // CallExpr tests
@@ -91,4 +117,30 @@ TEST(CallExprTest, ToStringWithNestedExprs) {
     args.push_back(std::make_unique<BinaryExpr>('+', std::move(lhs), std::move(rhs)));
     CallExpr expr("sum", std::move(args));
     EXPECT_EQ(expr.toString(), "sum((2.000000 + 3.000000))");
+}
+
+TEST(CallExprTest, GetCalleeNameReturnsCorrectName) {
+    std::vector<std::unique_ptr<Expr>> args;
+    CallExpr expr("calculate", std::move(args));
+    EXPECT_EQ(expr.getCalleeName(), "calculate");
+}
+
+TEST(CallExprTest, GetArgsReturnsCorrectArgs) {
+    std::vector<std::unique_ptr<Expr>> args;
+    args.push_back(std::make_unique<NumberExpr>(10.0));
+    args.push_back(std::make_unique<VariableExpr>("x"));
+    CallExpr expr("process", std::move(args));
+
+    auto argList = expr.getArgs();
+    ASSERT_EQ(argList.size(), 2);
+    EXPECT_EQ(argList[0]->toString(), "10.000000");
+    EXPECT_EQ(argList[1]->toString(), "x");
+}
+
+TEST(CallExprTest, GetNumArgsReturnsCorrectCount) {
+    std::vector<std::unique_ptr<Expr>> args;
+    args.push_back(std::make_unique<NumberExpr>(1.0));
+    args.push_back(std::make_unique<VariableExpr>("y"));
+    CallExpr expr("func", std::move(args));
+    EXPECT_EQ(expr.getNumArgs(), 2);
 }

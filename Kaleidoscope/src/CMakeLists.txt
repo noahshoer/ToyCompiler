@@ -13,5 +13,5 @@ else()
     )
 endif()
 
-add_executable(parser parser_cli.cpp)
-target_link_libraries(parser kaleidoscope_lib)
+# add_executable(parser parser_cli.cpp)
+# target_link_libraries(parser kaleidoscope_lib)
