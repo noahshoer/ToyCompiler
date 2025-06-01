@@ -36,11 +36,20 @@ TEST(LexerTest, RecognizesNumber) {
     EXPECT_DOUBLE_EQ(lexer.getNumVal(), 123);
 }
 
-TEST(LexerTest, DISABLED_RecognizesNumberNegative) {
+TEST(LexerTest, RecognizesNumberNegative) {
     std::istringstream iss("-123");
     Lexer lexer(iss);
     EXPECT_EQ(lexer.advance(), tok_number);
-    EXPECT_DOUBLE_EQ(lexer.getNumVal(), -123.45);
+    EXPECT_DOUBLE_EQ(lexer.getNumVal(), -123);
+}
+
+TEST(LexerTest, SplitsOnExtraNegative)  {
+    std::istringstream iss("-123-4");
+    Lexer lexer(iss);
+    EXPECT_EQ(lexer.advance(), tok_number);
+    EXPECT_DOUBLE_EQ(lexer.getNumVal(), -123);
+    EXPECT_EQ(lexer.advance(), tok_number);
+    EXPECT_DOUBLE_EQ(lexer.getNumVal(), -4);
 }
 
 TEST(LexerTest, RecognizesNumberWithLeadingZero) {
@@ -57,12 +66,10 @@ TEST(LexerTest, RecognizesNumberWithDecimal) {
     EXPECT_DOUBLE_EQ(lexer.getNumVal(), 0.123);
 }
 
-TEST(LexerTest, DISABLED_BreaksOnExtraDecimal) {
+TEST(LexerTest, BreaksOnExtraDecimal) {
     std::istringstream iss("0.123.456");
     Lexer lexer(iss);
-    EXPECT_EQ(lexer.advance(), tok_number);
-    EXPECT_DOUBLE_EQ(lexer.getNumVal(), 0.123);
-    EXPECT_THROW(lexer.advance(), std::runtime_error);
+    EXPECT_DEATH(lexer.advance(), "multiple decimals");
 }
 
 TEST(LexerTest, RecognizesSingleCharToken) {

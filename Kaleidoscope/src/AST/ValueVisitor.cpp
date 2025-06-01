@@ -5,12 +5,6 @@
 #include "AST/Fcn.hpp"
 #include "AST/ValueVisitor.hpp"
 
-CodegenVisitor::CodegenVisitor(const std::string& moduleName) {
-    context = std::make_unique<llvm::LLVMContext>();
-    module = std::make_unique<llvm::Module>(moduleName, *context);
-    builder = std::make_unique<llvm::IRBuilder<>>(*context);
-}
-
 llvm::Value* CodegenVisitor::visitNumberExpr(NumberExpr &expr) {
     // Constants are uniqued and shared, so we use get() to get/create a constant
     llvm::Value* value = llvm::ConstantFP::get(*context, llvm::APFloat(expr.getValue()));
@@ -80,7 +74,7 @@ llvm::Value* CodegenVisitor::visitFcnPrototype(FcnPrototype &proto) {
     // Create a function prototype in LLVM IR
     std::vector<llvm::Type*> argTypes(proto.getArgs().size(), llvm::Type::getDoubleTy(*context));
     llvm::FunctionType* fType = llvm::FunctionType::get(llvm::Type::getDoubleTy(*context), argTypes, false);
-    llvm::Function* function = llvm::Function::Create(fType, llvm::Function::ExternalLinkage, proto.getName(), module.get());
+    llvm::Function* function = llvm::Function::Create(fType, llvm::Function::ExternalLinkage, proto.getName(), module);
     
     // Set argument names
     unsigned idx = 0;

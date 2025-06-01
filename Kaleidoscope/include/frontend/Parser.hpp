@@ -50,7 +50,7 @@ public:
     ///     <expression>
     std::unique_ptr<Fcn> parseTopLevelExpr() {
         if (auto expr = parseExpression()) {
-            auto proto = std::make_unique<FcnPrototype>("anon", std::vector<std::string>());
+            auto proto = std::make_unique<FcnPrototype>("__anon_expr", std::vector<std::string>());
             return std::make_unique<Fcn>(std::move(proto), std::move(expr));
         }
         return nullptr;

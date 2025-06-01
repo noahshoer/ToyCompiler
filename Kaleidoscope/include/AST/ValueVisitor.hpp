@@ -25,7 +25,8 @@ public:
 
 class CodegenVisitor : public ValueVisitor {
 public:
-    CodegenVisitor(const std::string& moduleName);
+    CodegenVisitor(llvm::LLVMContext* ctx, llvm::Module* mod, llvm::IRBuilder<>* build)
+        : context(ctx), module(mod), builder(build) {}
 
     llvm::Value* visitNumberExpr(NumberExpr &expr) override;
     llvm::Value* visitVariableExpr(VariableExpr &expr) override;
@@ -36,12 +37,12 @@ public:
 
 
 private:
-    std::unique_ptr<llvm::IRBuilder<>> builder;
-    std::unique_ptr<llvm::LLVMContext> context;
+    llvm::IRBuilder<>* builder;
+    llvm::LLVMContext* context;
 
     /// The LLVM module holds functions and global variables, it is
     /// the top-level container for LLVM IR code.
-    std::unique_ptr<llvm::Module> module;
+    llvm::Module* module;
 
     std::map<std::string, llvm::Value *> namedValues;
 

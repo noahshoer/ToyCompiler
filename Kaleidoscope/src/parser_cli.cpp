@@ -7,11 +7,17 @@ using namespace lang;
 class Driver {
 public:
     Driver(const std::string& moduleName) 
-        : lexer(), parser(lexer), visitor(moduleName) {
+        : lexer(), parser(lexer) {
         
+        makeModule(moduleName);
+        visitor = std::make_unique<CodegenVisitor>(context.get(), module.get(), builder.get());
         // Prime the first token
         fprintf(stdout, "ready> ");
         lexer.advance();
+    }
+
+    llvm::Module* getModule() const {
+        return module.get();
     }
 
     /// top ::= definition | external | expression | ';'
@@ -38,6 +44,12 @@ public:
         }
     }
 private:
+    void makeModule(const std::string& moduleName) {
+        context = std::make_unique<llvm::LLVMContext>();
+        module = std::make_unique<llvm::Module>(moduleName, *context);
+        builder = std::make_unique<llvm::IRBuilder<>>(*context);
+    }
+
     void HandleDefinition() {
         if (auto fcn = parser.parseDefinition()) {
             dump(fcn.get(), "Parsed a function definition.");
@@ -65,20 +77,20 @@ private:
     }
 
     void dump(Fcn* node, const char* parseMsg) {
-        if (auto IR = node->accept(visitor)) {
+        if (auto IR = node->accept(*visitor)) {
             dumpImpl(IR, parseMsg);
         }
     }
 
     void dumpErase(Fcn* node, const char* parseMsg) {
-        if (auto IR = node->accept(visitor)) {
+        if (auto IR = node->accept(*visitor)) {
             dumpImpl(IR, parseMsg);
             static_cast<llvm::Function*>(IR)->eraseFromParent();
         }
     }
 
     void dump(FcnPrototype* node, const char* parseMsg) {
-        if (auto IR = node->accept(visitor)) {
+        if (auto IR = node->accept(*visitor)) {
             dumpImpl(IR, parseMsg);
         }
     }
@@ -91,7 +103,10 @@ private:
 
     Parser parser;
     Lexer lexer;
-    CodegenVisitor visitor;
+    std::unique_ptr<CodegenVisitor> visitor;
+    std::unique_ptr<llvm::LLVMContext> context;
+    std::unique_ptr<llvm::Module> module;
+    std::unique_ptr<llvm::IRBuilder<>> builder;
 };
 
 
@@ -106,6 +121,6 @@ int main() {
     driver.MainLoop();
 
     // Print out all of the generated code.
-    //  TheModule->print(errs(), nullptr);
+    driver.getModule()->print(llvm::outs(), nullptr);
     return 0;
 }

@@ -21,8 +21,12 @@ enum Token : int {
     tok_number = -5,
 };
 
+static bool isposnum(char c) {
+    return isdigit(c) || c == '.';
+}
+
 static bool isnum(char c) {
-    return std::isdigit(c) || c == '.';
+    return isposnum(c) || c == '-';
 }
 
 static bool iseol(char c) {
@@ -83,10 +87,15 @@ private:
         // Match [0-9.]+ , needs to be improved to handle more cases
         if (isnum(fLastChar)) {
             std::string NumStr;
+            int decimal = 0;
             do {
                 NumStr += fLastChar;
                 fLastChar = Token(getNextChar());
-            } while (isnum(fLastChar));
+                if (fLastChar == '.') {
+                    decimal++;
+                    assert(decimal < 2 && "Cannot handle multiple decimals in a number");
+                }
+            } while (isposnum(fLastChar));
             fNumVal = strtod(NumStr.c_str(), nullptr);
             return tok_number;
         }
