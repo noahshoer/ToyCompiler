@@ -3,7 +3,7 @@
 
 #include "AST/Expr.hpp"
 #include "AST/Fcn.hpp"
-#include "AST/ASTVisitor.hpp"
+#include "AST/ValueVisitor.hpp"
 
 CodegenVisitor::CodegenVisitor(const std::string& moduleName) {
     context = std::make_unique<llvm::LLVMContext>();

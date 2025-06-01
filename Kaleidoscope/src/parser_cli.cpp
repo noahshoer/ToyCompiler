@@ -1,4 +1,5 @@
 #include "AST/ASTVisitor.hpp"
+#include "AST/ValueVisitor.hpp"
 #include "frontend/Parser.hpp"
 
 using namespace lang;
@@ -56,6 +57,7 @@ private:
         // Evaluate a top-level expression into an anonymous function.
         if (auto fcn = parser.parseTopLevelExpr()) {
             dump(fcn.get(), "Parsed a top-level expr");
+
         } else {
             // Skip token for error recovery.
             lexer.advance();
@@ -65,6 +67,13 @@ private:
     void dump(Fcn* node, const char* parseMsg) {
         if (auto IR = node->accept(visitor)) {
             dumpImpl(IR, parseMsg);
+        }
+    }
+
+    void dumpErase(Fcn* node, const char* parseMsg) {
+        if (auto IR = node->accept(visitor)) {
+            dumpImpl(IR, parseMsg);
+            static_cast<llvm::Function*>(IR)->eraseFromParent();
         }
     }
 
@@ -96,5 +105,7 @@ int main() {
     
     driver.MainLoop();
 
+    // Print out all of the generated code.
+    //  TheModule->print(errs(), nullptr);
     return 0;
 }

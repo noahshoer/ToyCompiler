@@ -16,11 +16,7 @@ public:
         : name(Name), args(std::move(Args)) {}
         
     void accept(ASTVisitor &visitor) override;
-
-    template<typename R>
-    R accept(ASTReturnVisitor<R> &visitor) {
-        return visitor.visitFcnPrototype(*this);
-    }
+    llvm::Value* accept(ValueVisitor &visitor) override;
 
     const std::vector<std::string>& getArgs() const {
         return args;
@@ -44,11 +40,7 @@ public:
         : prototype(std::move(Prototype)), body(std::move(Body)) {}
     
     void accept(ASTVisitor &visitor) override;
-
-    template<typename R>
-    R accept(ASTReturnVisitor<R> &visitor) {
-        return visitor.visitFcn(*this);
-    }
+    llvm::Value* accept(ValueVisitor &visitor) override;
 
     const std::string getName() const {
         return prototype ? prototype->getName() : "";

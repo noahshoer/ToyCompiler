@@ -11,10 +11,8 @@ public:
     virtual ~Expr() = default;
 
     void accept(ASTVisitor &visitor) override = 0;
-    template <typename R>
-    R accept(ASTReturnVisitor<R>& visitor) {
-        assert(false && "accept not implemented for this node type");
-    }
+    llvm::Value* accept(ValueVisitor &visitor) override = 0;
+
     const std::string getType() const override = 0;
     virtual std::string toString() const = 0;
 };
@@ -26,11 +24,7 @@ public:
     NumberExpr(double val) : value(val) {}
 
     void accept(ASTVisitor &visitor) override;
-
-    template<typename R>
-    R accept(ASTReturnVisitor<R> &visitor) {
-        return visitor.visitNumberExpr(*this);
-    }
+    llvm::Value* accept(ValueVisitor &visitor) override;
 
     const std::string getType() const override {
         return "Number";
@@ -52,11 +46,7 @@ public:
     VariableExpr(const std::string &varName) : name(varName) {}
 
     void accept(ASTVisitor &visitor) override;
-    
-    template<typename R>
-    R accept(ASTReturnVisitor<R> &visitor) {
-        return visitor.visitVariableExpr(*this);
-    }
+    llvm::Value* accept(ValueVisitor &visitor) override;
 
     const std::string getType() const override {
         return "Variable";
@@ -80,11 +70,7 @@ public:
         : Op(op), LHS(std::move(lhs)), RHS(std::move(rhs)) {}
 
     void accept(ASTVisitor &visitor) override;
-
-    template<typename R>
-    R accept(ASTReturnVisitor<R> &visitor) {
-        return visitor.visitBinaryExpr(*this);
-    }
+    llvm::Value* accept(ValueVisitor &visitor) override;
 
     Expr* getLHS() const {
         return LHS.get();
@@ -116,11 +102,7 @@ public:
         : callee(callee), args(std::move(args)) {}
 
     void accept(ASTVisitor &visitor) override;
-
-    template<typename R>
-    R accept(ASTReturnVisitor<R> &visitor) {
-        return visitor.visitCallExpr(*this);
-    }
+    llvm::Value* accept(ValueVisitor &visitor) override;
 
     std::vector<Expr*> getArgs() const {
         std::vector<Expr*> argsOut;

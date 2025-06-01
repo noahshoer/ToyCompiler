@@ -2,21 +2,18 @@
 
 #include <cassert>
 #include <string>
-class ASTVisitor;
 
-template<typename R>
-class ASTReturnVisitor;
+#include "llvm/IR/Value.h"
+
+class ASTVisitor;
+class ValueVisitor;
 
 class ASTNode {
 public:
     virtual ~ASTNode() = default;
 
     virtual void accept(ASTVisitor &visitor) = 0;
-
-    template <typename R>
-    R accept(ASTReturnVisitor<R>& visitor) {
-        assert(false && "accept not implemented for this node type");
-    }
+    virtual llvm::Value* accept(ValueVisitor &visitor) = 0;
 
     virtual const std::string getType() const = 0;
 };
