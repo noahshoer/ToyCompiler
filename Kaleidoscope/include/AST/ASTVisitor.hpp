@@ -1,6 +1,7 @@
 #pragma once
 
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Module.h"
 #include <llvm/IR/Value.h>
 #include <map>
 
@@ -35,6 +36,8 @@ public:
 
 class CodegenVisitor : public ASTReturnVisitor<llvm::Value*> {
 public:
+    CodegenVisitor(const std::string& moduleName);
+
     llvm::Value* visitNumberExpr(NumberExpr &expr) override;
     llvm::Value* visitVariableExpr(VariableExpr &expr) override;
     llvm::Value* visitBinaryExpr(BinaryExpr &expr) override;

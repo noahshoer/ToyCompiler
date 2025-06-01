@@ -12,12 +12,27 @@
                 "CMAKE_BUILD_TYPE": "Debug",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
             }
+        },
+        {
+            "name": "macKaleidoscopePreset",
+            "description": "Mac clang preset",
+            "generator": "Unix Makefiles",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "/usr/bin/clang",
+                "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+            }
         }
     ],
     "buildPresets": [
         {
             "name": "windowsBuild",
             "configurePreset": "windowsKaleidoscopePreset"
+        },
+        {
+            "name": "macBuild",
+            "configurePreset": "macKaleidoscopePreset"
         }
     ],
     "testPresets": [
@@ -26,6 +41,11 @@
             "description": "Runs unit tests normally without dashboard mode",
             "displayName": "Windows Kaleidoscope Test",
             "configurePreset": "windowsKaleidoscopePreset"
+        },
+        {
+            "name": "macTest",
+            "description": "Unit tests",
+            "configurePreset": "macKaleidoscopePreset"
         }
     ],
     "workflowPresets": [
@@ -43,6 +63,23 @@
                 {
                     "type": "test",
                     "name": "windowsTest"
+                }
+            ]
+        },
+        {
+            "name": "Mac Workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "macKaleidoscopePreset"
+                },
+                {
+                    "type": "build",
+                    "name": "macBuild"
+                },
+                {
+                    "type": "test",
+                    "name": "macTest"
                 }
             ]
         }

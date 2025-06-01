@@ -6,6 +6,7 @@ if(KALEIDOSCOPE_SOURCES)
     target_include_directories(kaleidoscope_lib PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/../include
     )
+    target_link_libraries(kaleidoscope_lib PUBLIC LLVMCore)
 else()
     add_library(kaleidoscope_lib INTERFACE)
     target_include_directories(kaleidoscope_lib INTERFACE
@@ -13,5 +14,5 @@ else()
     )
 endif()
 
-# add_executable(parser parser_cli.cpp)
-# target_link_libraries(parser kaleidoscope_lib)
+add_executable(parser parser_cli.cpp)
+target_link_libraries(parser kaleidoscope_lib)

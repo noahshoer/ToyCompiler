@@ -1,10 +1,15 @@
 
-#include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 
 #include "AST/Expr.hpp"
 #include "AST/Fcn.hpp"
 #include "AST/ASTVisitor.hpp"
+
+CodegenVisitor::CodegenVisitor(const std::string& moduleName) {
+    context = std::make_unique<llvm::LLVMContext>();
+    module = std::make_unique<llvm::Module>(moduleName, *context);
+    builder = std::make_unique<llvm::IRBuilder<>>(*context);
+}
 
 llvm::Value* CodegenVisitor::visitNumberExpr(NumberExpr &expr) {
     // Constants are uniqued and shared, so we use get() to get/create a constant

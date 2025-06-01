@@ -33,5 +33,19 @@ include(GoogleTest)
 
 add_compile_options(-Wno-deprecated)
 
+# === LLVM Integration for macOS ===
+if(APPLE)
+  # Homebrew default path (adjust for Intel if needed)
+  set(LLVM_DIR "/opt/homebrew/opt/llvm/lib/cmake/llvm" CACHE PATH "Path to LLVMConfig.cmake")
+  find_package(LLVM REQUIRED CONFIG)
+
+  message(STATUS "Found LLVM version ${LLVM_PACKAGE_VERSION} on macOS")
+  message(STATUS "LLVM include dirs: ${LLVM_INCLUDE_DIRS}")
+  message(STATUS "LLVM libraries: ${LLVM_LIBRARY_DIRS}")
+
+  include_directories(${LLVM_INCLUDE_DIRS})
+  add_definitions(${LLVM_DEFINITIONS})
+endif()
+
 add_subdirectory(Kaleidoscope)
 # add_subdirectory(Toy)
