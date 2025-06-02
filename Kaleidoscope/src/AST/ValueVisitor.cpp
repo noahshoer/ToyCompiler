@@ -3,6 +3,7 @@
 
 #include "AST/Expr.hpp"
 #include "AST/Fcn.hpp"
+#include "AST/PrototypeRegistry.hpp"
 #include "AST/ValueVisitor.hpp"
 
 llvm::Value* CodegenVisitor::visitNumberExpr(NumberExpr &expr) {
@@ -48,7 +49,7 @@ llvm::Value* CodegenVisitor::visitBinaryExpr(BinaryExpr &expr) {
 }
 
 llvm::Value* CodegenVisitor::visitCallExpr(CallExpr &expr) {
-    llvm::Function* callee = module->getFunction(expr.getCalleeName());
+    llvm::Function* callee = PrototypeRegistry::getFunction(expr.getCalleeName(), *this);
     if (!callee) {
         logError("Unknown function called: " + expr.getCalleeName());
         return nullptr;
@@ -70,6 +71,10 @@ llvm::Value* CodegenVisitor::visitCallExpr(CallExpr &expr) {
     return builder->CreateCall(callee, args, "calltmp");
 }
 
+llvm::Value* CodegenVisitor::visitIfExpr(IfExpr &expr) {
+    return nullptr;
+}
+
 llvm::Value* CodegenVisitor::visitFcnPrototype(FcnPrototype &proto) {
     // Create a function prototype in LLVM IR
     std::vector<llvm::Type*> argTypes(proto.getArgs().size(), llvm::Type::getDoubleTy(*context));
@@ -86,18 +91,11 @@ llvm::Value* CodegenVisitor::visitFcnPrototype(FcnPrototype &proto) {
 }
 
 llvm::Value* CodegenVisitor::visitFcn(Fcn &fcn) {
-    llvm::Function* function = module->getFunction(fcn.getName());
+    auto protoName = fcn.getName();
+    PrototypeRegistry::addFcnPrototype(protoName, std::move(fcn.releasePrototype()));
+    llvm::Function* function = PrototypeRegistry::getFunction(protoName, *this);
 
     if (!function) {
-        function = static_cast<llvm::Function*>(fcn.getPrototype()->accept(*this));
-    }
-
-    if (!function) {
-        return nullptr;
-    }
-
-    if (!function->empty()) {
-        logError("Function '" + fcn.getName() + "' already defined");
         return nullptr;
     }
 
@@ -114,7 +112,12 @@ llvm::Value* CodegenVisitor::visitFcn(Fcn &fcn) {
     if (auto retVal = fcn.getBody()->accept(*this)) {
         // If the function body returns a value, create a return instruction
         builder->CreateRet(retVal);
+
+        // Validates the generated code
         llvm::verifyFunction(*function);
+
+        // Optimize the function
+        fpm->run(*function, *fam);
         return function;
     }
 

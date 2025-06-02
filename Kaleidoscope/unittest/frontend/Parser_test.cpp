@@ -12,7 +12,7 @@ TEST(Parser, ParseNumberExpr) {
 
     auto fcn = parser.parseTopLevelExpr();
     ASSERT_NE(fcn, nullptr);
-    EXPECT_EQ(fcn->getName(), "anon");
+    EXPECT_EQ(fcn->getName(), "__anon_expr");
     EXPECT_EQ(fcn->getBody()->getType(), "Number");
     EXPECT_EQ(fcn->getBody()->toString(), "42.000000");
 }
@@ -25,7 +25,7 @@ TEST(Parser, ParseParenExpr) {
 
     auto fcn = parser.parseTopLevelExpr();
     ASSERT_NE(fcn, nullptr);
-    EXPECT_EQ(fcn->getName(), "anon");
+    EXPECT_EQ(fcn->getName(), "__anon_expr");
     EXPECT_EQ(fcn->getBody()->getType(), "Number")
         << "Expected a NumberExpr inside parentheses";
 }
@@ -38,7 +38,7 @@ TEST(Parser, ParseVariableExpr) {
 
     auto fcn = parser.parseTopLevelExpr();
     ASSERT_NE(fcn, nullptr);
-    EXPECT_EQ(fcn->getName(), "anon");
+    EXPECT_EQ(fcn->getName(), "__anon_expr");
     EXPECT_EQ(fcn->getBody()->getType(), "Variable");
 }
 
@@ -50,7 +50,7 @@ TEST(Parser, ParseCallExprNoArgs) {
 
     auto fcn = parser.parseTopLevelExpr();
     ASSERT_NE(fcn, nullptr);
-    EXPECT_EQ(fcn->getName(), "anon");
+    EXPECT_EQ(fcn->getName(), "__anon_expr");
     EXPECT_EQ(fcn->getBody()->getType(), "Call");
 }
 
@@ -62,7 +62,7 @@ TEST(Parser, ParseCallExprWithArgs) {
 
     auto fcn = parser.parseTopLevelExpr();
     ASSERT_NE(fcn, nullptr);
-    EXPECT_EQ(fcn->getName(), "anon");
+    EXPECT_EQ(fcn->getName(), "__anon_expr");
     EXPECT_EQ(fcn->getBody()->getType(), "Call");
 }
 
@@ -74,7 +74,7 @@ TEST(Parser, ParseBinaryExprPrecedence) {
 
     auto expr = parser.parseTopLevelExpr();
     ASSERT_NE(expr, nullptr);
-    EXPECT_EQ(expr->getName(), "anon");
+    EXPECT_EQ(expr->getName(), "__anon_expr");
     EXPECT_EQ(expr->getBody()->getType(), "Binary");
 }
 
@@ -109,7 +109,7 @@ TEST(Parser, ParseTopLevelExpr) {
 
     auto fcn = parser.parseTopLevelExpr();
     ASSERT_NE(fcn, nullptr);
-    EXPECT_EQ(fcn->getName(), "anon");
+    EXPECT_EQ(fcn->getName(), "__anon_expr");
     EXPECT_EQ(fcn->getBody()->getType(), "Binary");
 }
 

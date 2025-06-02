@@ -19,6 +19,10 @@ enum Token : int {
 
     tok_identifier = -4,
     tok_number = -5,
+
+    tok_if = -6,
+    tok_then = -7,
+    tok_else = -8,
 };
 
 static bool isposnum(char c) {
@@ -126,6 +130,15 @@ private:
         }
         if (word == "extern") {
             return tok_extern;
+        }
+        if (word == "if") {
+            return tok_if;
+        }
+        if (word == "then") {
+            return tok_then;
+        }
+        if (word == "else") {
+            return tok_else;
         }
         return tok_identifier;
     }

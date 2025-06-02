@@ -45,8 +45,13 @@ public:
     const std::string getName() const {
         return prototype ? prototype->getName() : "";
     }
+
     FcnPrototype* getPrototype() const {
         return prototype.get();
+    }
+
+    std::unique_ptr<FcnPrototype> releasePrototype() {
+        return std::move(prototype);
     }
 
     Expr* getBody() const {

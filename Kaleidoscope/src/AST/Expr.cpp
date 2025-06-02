@@ -18,6 +18,10 @@ void CallExpr::accept(ASTVisitor &visitor) {
     visitor.visitCallExpr(*this);
 }
 
+void IfExpr::accept(ASTVisitor &visitor) {
+    visitor.visitIfExpr(*this);
+}
+
 llvm::Value* NumberExpr::accept(ValueVisitor &visitor) {
     return  visitor.visitNumberExpr(*this);
 }
@@ -32,4 +36,8 @@ llvm::Value* BinaryExpr::accept(ValueVisitor &visitor) {
 
 llvm::Value* CallExpr::accept(ValueVisitor &visitor) {
     return visitor.visitCallExpr(*this);
+}
+
+llvm::Value* IfExpr::accept(ValueVisitor &visitor) {
+    return visitor.visitIfExpr(*this);
 }

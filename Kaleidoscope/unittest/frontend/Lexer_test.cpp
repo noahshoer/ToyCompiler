@@ -165,6 +165,27 @@ TEST(LexerTest, GetCurrentTokenAfterEOF) {
     EXPECT_EQ(lexer.getCurrentToken(), tok_eof);
 }
 
+TEST(LexerTest, GetCurrentTokenIf) {
+    std::istringstream iss("if");
+    Lexer lexer(iss);
+    lexer.advance(); // def
+    EXPECT_EQ(lexer.getCurrentToken(), tok_if);
+}
+
+TEST(LexerTest, GetCurrentTokenThen) {
+    std::istringstream iss("then");
+    Lexer lexer(iss);
+    lexer.advance(); // def
+    EXPECT_EQ(lexer.getCurrentToken(), tok_then);
+}
+
+TEST(LexerTest, GetCurrentTokenElse) {
+    std::istringstream iss("else");
+    Lexer lexer(iss);
+    lexer.advance(); // def
+    EXPECT_EQ(lexer.getCurrentToken(), tok_else);
+}
+
 TEST(LexerTest, ConsumeAdvancesOnCorrectToken) {
     std::istringstream iss("def extern");
     Lexer lexer(iss);
@@ -206,4 +227,3 @@ TEST(LexerTest, ConsumeWorksWithNumberAndIdentifier) {
     lexer.consume(tok_identifier);
     EXPECT_EQ(lexer.advance(), tok_eof);
 }
-

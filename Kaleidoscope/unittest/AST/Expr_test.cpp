@@ -2,6 +2,8 @@
 #include <gmock/gmock.h>
 #include "AST/Expr.hpp"
 #include "mocks/AST/MockExpr.hpp"
+#include "mocks/AST/MockASTVisitor.hpp"
+#include "mocks/AST/MockValueVisitor.hpp"
 
 // MockExpr tests
 TEST(MockExprTest, InterfaceTest) {
@@ -30,6 +32,27 @@ TEST(NumberExprTest, GetValueReturnsCorrectValue) {
     EXPECT_EQ(expr.getValue(), 1.618);
 }
 
+TEST(NumberExprTest, AcceptASTVisitor) {
+    MockASTVisitor mockVisitor;
+    NumberExpr expr(3.14);
+
+    EXPECT_CALL(mockVisitor, visitNumberExpr(testing::Ref(expr)))
+        .Times(1);
+
+    expr.accept(mockVisitor);
+}
+
+TEST_F(MockedValueVisitorTest, VisitNumberExpr) {
+    MockValueVisitor mockVisitor;
+    NumberExpr expr(3.14);
+
+    EXPECT_CALL(mockVisitor, visitNumberExpr(testing::Ref(expr)))
+        .WillOnce(testing::Return(value));
+
+    llvm::Value* result = expr.accept(mockVisitor);
+    EXPECT_EQ(result, value);
+}
+
 // VariableExpr tests
 TEST(VariableExprTest, GetTypeReturnsVariable) {
     VariableExpr expr("foo");
@@ -44,6 +67,27 @@ TEST(VariableExprTest, ToStringReturnsName) {
 TEST(VariableExprTest, GetNameReturnsCorrectName) {
     VariableExpr expr("baz");
     EXPECT_EQ(expr.getName(), "baz");
+}
+
+TEST(VariableExprTest, AcceptASTVisitor) {
+    MockASTVisitor mockVisitor;
+    VariableExpr expr("x");
+
+    EXPECT_CALL(mockVisitor, visitVariableExpr(testing::Ref(expr)))
+        .Times(1);
+
+    expr.accept(mockVisitor);
+}
+
+TEST_F(MockedValueVisitorTest, VisitVariableExpr) {
+    MockValueVisitor mockVisitor;
+    VariableExpr expr("x");
+
+    EXPECT_CALL(mockVisitor, visitVariableExpr(testing::Ref(expr)))
+        .WillOnce(testing::Return(value));
+
+    llvm::Value* result = expr.accept(mockVisitor);
+    EXPECT_EQ(result, value);
 }
 
 // BinaryExpr tests
@@ -87,6 +131,31 @@ TEST(BinaryExprTest, GetOpReturnsCorrectOperator) {
     auto rhs = std::make_unique<NumberExpr>(2.0);
     BinaryExpr expr('-', std::move(lhs), std::move(rhs));
     EXPECT_EQ(expr.getOp(), '-');
+}
+
+TEST(BinaryExprTest, AcceptASTVisitor) {
+    MockASTVisitor mockVisitor;
+    auto lhs = std::make_unique<NumberExpr>(1.0);
+    auto rhs = std::make_unique<NumberExpr>(2.0);
+    BinaryExpr expr('+', std::move(lhs), std::move(rhs));
+
+    EXPECT_CALL(mockVisitor, visitBinaryExpr(testing::Ref(expr)))
+        .Times(1);
+
+    expr.accept(mockVisitor);
+}
+
+TEST_F(MockedValueVisitorTest, VisitBinaryExpr) {
+    MockValueVisitor mockVisitor;
+    auto lhs = std::make_unique<NumberExpr>(1.0);
+    auto rhs = std::make_unique<NumberExpr>(2.0);
+    BinaryExpr expr('+', std::move(lhs), std::move(rhs));
+
+    EXPECT_CALL(mockVisitor, visitBinaryExpr(testing::Ref(expr)))
+        .WillOnce(testing::Return(value));
+
+    llvm::Value* result = expr.accept(mockVisitor);
+    EXPECT_EQ(result, value);
 }
 
 // CallExpr tests
@@ -143,4 +212,92 @@ TEST(CallExprTest, GetNumArgsReturnsCorrectCount) {
     args.push_back(std::make_unique<VariableExpr>("y"));
     CallExpr expr("func", std::move(args));
     EXPECT_EQ(expr.getNumArgs(), 2);
+}
+
+TEST(CallExprTest, AcceptASTVisitor) {
+    MockASTVisitor mockVisitor;
+    std::vector<std::unique_ptr<Expr>> args;
+    args.push_back(std::make_unique<NumberExpr>(1.0));
+    CallExpr expr("foo", std::move(args));
+
+    EXPECT_CALL(mockVisitor, visitCallExpr(testing::Ref(expr)))
+        .Times(1);
+
+    expr.accept(mockVisitor);
+}
+
+TEST_F(MockedValueVisitorTest, VisitCallExpr) {
+    MockValueVisitor mockVisitor;
+    std::vector<std::unique_ptr<Expr>> args;
+    args.push_back(std::make_unique<NumberExpr>(1.0));
+    CallExpr expr("foo", std::move(args));
+
+    EXPECT_CALL(mockVisitor, visitCallExpr(testing::Ref(expr)))
+        .WillOnce(testing::Return(value));
+
+    llvm::Value* result = expr.accept(mockVisitor);
+    EXPECT_EQ(result, value);
+}
+
+class IfExprTest : public MockedValueVisitorTest {
+protected:
+    void SetUp() override {
+        MockedValueVisitorTest::SetUp();
+        auto lhs = std::make_unique<NumberExpr>(6.0);
+        auto rhs = std::make_unique<VariableExpr>("y");
+        auto cond = std::make_unique<BinaryExpr>('+', std::move(lhs), std::move(rhs));
+        exprCond = cond.get();
+        auto then = std::make_unique<NumberExpr>(1);
+        exprThen = then.get();
+        auto aElse = std::make_unique<NumberExpr>(2);
+        exprElse = aElse.get();
+        expr = std::make_unique<IfExpr>(std::move(cond), std::move(then), std::move(aElse));
+    }
+
+    std::unique_ptr<IfExpr> expr;
+    BinaryExpr* exprCond;
+    NumberExpr* exprThen;
+    NumberExpr* exprElse;
+};
+
+TEST_F(IfExprTest, GetTypeReturnsIfThenElse) {
+    EXPECT_EQ(expr->getType(), "If-Then-Else");
+}
+
+TEST_F(IfExprTest, ToString) {
+    EXPECT_EQ(expr->toString(), "if " + exprCond->toString() + " then\n"
+        + "\t" + exprThen->toString() + "\n"
+        + "else\n"
+        + "\t" + exprElse->toString());
+}
+
+TEST_F(IfExprTest, GetCond) {
+    EXPECT_EQ(expr->getCond(), exprCond);
+}
+
+TEST_F(IfExprTest, GetThen) {
+    EXPECT_EQ(expr->getThen(), exprThen);
+}
+
+TEST_F(IfExprTest, GetElse) {
+    EXPECT_EQ(expr->getElse(), exprElse);
+}
+
+TEST_F(IfExprTest, AcceptASTVisitor) {
+    MockASTVisitor mockVisitor;
+
+    EXPECT_CALL(mockVisitor, visitIfExpr(testing::Ref(*expr)))
+        .Times(1);
+
+    expr->accept(mockVisitor); 
+}
+
+TEST_F(IfExprTest, VisitIfExpr) {
+    MockValueVisitor mockVisitor;
+
+    EXPECT_CALL(mockVisitor, visitIfExpr(testing::Ref(*expr)))
+        .WillOnce(testing::Return(value));
+
+    llvm::Value* result = expr->accept(mockVisitor);
+    EXPECT_EQ(result, value);
 }

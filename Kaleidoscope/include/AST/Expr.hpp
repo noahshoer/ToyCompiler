@@ -136,3 +136,39 @@ public:
         return result;
     }
 };
+
+class IfExpr : public Expr {
+    std::unique_ptr<Expr> Cond, Then, Else;
+
+public:
+    IfExpr(std::unique_ptr<Expr> aCond, std::unique_ptr<Expr> aThen,
+        std::unique_ptr<Expr> aElse) 
+        : Cond(std::move(aCond)), Then(std::move(aThen)), Else(std::move(aElse)) {}
+
+    void accept(ASTVisitor &visitor) override;
+    llvm::Value* accept(ValueVisitor &visitor) override;
+
+    Expr* getCond() const {
+        return Cond.get();
+    }
+
+    Expr* getThen() const {
+        return Then.get();
+    }
+
+    Expr* getElse() const {
+        return Else.get();
+    }
+
+    const std::string getType() const override {
+        return "If-Then-Else";
+    }
+
+    std::string toString() const override {
+        std::string result = "if " + Cond->toString() + " then\n";
+        result += "\t" + Then->toString() + "\n";
+        result += "else\n";
+        result += "\t" + Else->toString();
+        return result;
+    }
+};

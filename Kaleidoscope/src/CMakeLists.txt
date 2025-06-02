@@ -6,7 +6,24 @@ if(KALEIDOSCOPE_SOURCES)
     target_include_directories(kaleidoscope_lib PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/../include
     )
-    target_link_libraries(kaleidoscope_lib PUBLIC LLVMCore)
+
+    set(LLVM_COMPONENTS
+        core
+        native
+        orcjit)
+
+    # if (APPLE)
+    #     list(APPEND LLVM_COMPONENTS
+    #         aarch64asmparser
+    #         aarch64codegen)
+    # else()
+    #     list(APPEND LLVM_COMPONENTS
+    #         x86asmparser
+    #         x86codegen)
+    # endif()
+
+    llvm_map_components_to_libnames(LLVM_LIBS ${LLVM_COMPONENTS})
+    target_link_libraries(kaleidoscope_lib PUBLIC ${LLVM_LIBS})
 else()
     add_library(kaleidoscope_lib INTERFACE)
     target_include_directories(kaleidoscope_lib INTERFACE
