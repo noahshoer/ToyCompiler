@@ -49,6 +49,10 @@ public:
         fam = FAM;
     }
 
+    void setNamedValue(const std::string& name, llvm::Value* value) {
+        namedValues[name] = value;
+    }
+
 private:
     llvm::IRBuilder<>* builder;
     llvm::LLVMContext* context;

@@ -79,7 +79,9 @@ private:
         }
 
         std::vector<std::unique_ptr<Expr>> args;
-        gatherCallExprArgs(args);
+        if (!gatherCallExprArgs(args)) {
+            return nullptr;
+        }
 
         if (fLexer.getCurrentToken() != tok_close_paren) {
             return nullptr;
@@ -89,25 +91,25 @@ private:
         return std::make_unique<CallExpr>(idName, std::move(args));
     }
 
-    void gatherCallExprArgs(std::vector<std::unique_ptr<Expr>>& args) {
+    bool gatherCallExprArgs(std::vector<std::unique_ptr<Expr>>& args) {
         if (fLexer.advance() == tok_close_paren) {
-            return;
+            return true;
         }
 
         while (true) {
             if (auto arg = parseExpression()) {
                 args.push_back(std::move(arg));
             } else {
-                return; // Error in argument parsing
+                return false; // Error in argument parsing
             }
 
             if (fLexer.getCurrentToken() == tok_close_paren) {
-                return; // end of arguments
+                return true; // end of arguments
             }
 
             if (fLexer.getCurrentToken() != tok_comma) {
                 logErrorAndReturnNull<Expr>("Expected ')' or ',' in argument list");
-                return;
+                return false;
             }
             fLexer.consume(tok_comma);
         }
@@ -162,6 +164,8 @@ private:
                 return parseNumberExpr();
             case tok_open_paren:
                 return parseParenExpr();
+            case tok_if:
+                return parseIfExpr();
         }
     }
 
@@ -239,6 +243,37 @@ private:
         }
         fLexer.consume(tok_close_paren);
         return std::make_unique<FcnPrototype>(fcnName, std::move(argNames));
+    }
+
+    std::unique_ptr<Expr> parseIfExpr() {
+        fLexer.advance();
+
+        auto Cond = parseExpression();
+        if (!Cond) {
+            return nullptr;
+        }
+
+        if (fLexer.getCurrentToken() != tok_then) {
+            return logErrorAndReturnNull<IfExpr>("Expected a then");
+        }
+        fLexer.advance();
+
+        auto Then = parseExpression();
+        if (!Then) {
+            return nullptr;
+        }
+
+        if (fLexer.getCurrentToken() != tok_else) {
+            return logErrorAndReturnNull<IfExpr>("Expected else");
+        }
+        fLexer.advance();
+
+        auto Else = parseExpression();
+        if (!Else) {
+            return nullptr;
+        }
+
+        return std::make_unique<IfExpr>(std::move(Cond), std::move(Then), std::move(Else));
     }
 };
 } // namespace lang

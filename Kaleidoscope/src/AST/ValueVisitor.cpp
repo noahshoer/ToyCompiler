@@ -72,7 +72,52 @@ llvm::Value* CodegenVisitor::visitCallExpr(CallExpr &expr) {
 }
 
 llvm::Value* CodegenVisitor::visitIfExpr(IfExpr &expr) {
-    return nullptr;
+    llvm::Value* condValue = expr.getCond()->accept(*this);
+    if (!condValue) {
+        return nullptr;
+    }
+
+    // Get the one bit bool directly
+    condValue = builder->CreateFCmpONE(condValue, 
+        llvm::ConstantFP::get(*context, llvm::APFloat(0.0)), "ifcond");
+
+    llvm::Function* function = builder->GetInsertBlock()->getParent();
+    llvm::BasicBlock* thenBB =
+        llvm::BasicBlock::Create(*context, "then", function);
+    llvm::BasicBlock* elseBB = llvm::BasicBlock::Create(*context, "else");
+    llvm::BasicBlock* mergeBB = llvm::BasicBlock::Create(*context, "ifcont");
+
+    builder->CreateCondBr(condValue, thenBB, elseBB);
+
+    builder->SetInsertPoint(thenBB);
+    llvm::Value* thenValue = expr.getThen()->accept(*this);
+    if (!thenValue) {
+        return nullptr;
+    }
+    builder->CreateBr(mergeBB);
+    // Get the insert block for the phi to protect against thenBB 
+    // changing the emittee block during recursive codegen
+    thenBB = builder->GetInsertBlock();
+
+    // Add the else block to the function
+    function->insert(function->end(), elseBB);
+    builder->SetInsertPoint(elseBB);
+    llvm::Value* elseValue = expr.getElse()->accept(*this);
+    if (!elseValue) {
+        return nullptr;
+    }
+
+    builder->CreateBr(mergeBB);
+    elseBB = builder->GetInsertBlock();
+
+    function->insert(function->end(), mergeBB);
+    builder->SetInsertPoint(mergeBB);
+    llvm::PHINode* pn = 
+        builder->CreatePHI(llvm::Type::getDoubleTy(*context), 2, "iftmp");
+
+    pn->addIncoming(thenValue, thenBB);
+    pn->addIncoming(elseValue, elseBB);
+    return pn;
 }
 
 llvm::Value* CodegenVisitor::visitFcnPrototype(FcnPrototype &proto) {
@@ -106,7 +151,7 @@ llvm::Value* CodegenVisitor::visitFcn(Fcn &fcn) {
     namedValues.clear();
     for (auto &arg : function->args()) {
         // Map the argument names to their corresponding LLVM values
-        namedValues[arg.getName().str()] = &arg;
+        setNamedValue(arg.getName().str(), &arg);
     }
 
     if (auto retVal = fcn.getBody()->accept(*this)) {
