@@ -11,6 +11,7 @@ class VariableExpr;
 class BinaryExpr;
 class CallExpr;
 class IfExpr;
+class ForExpr;
 
 class FcnPrototype;
 class Fcn;
@@ -22,6 +23,7 @@ public:
     virtual llvm::Value* visitBinaryExpr(BinaryExpr &expr) = 0;
     virtual llvm::Value* visitCallExpr(CallExpr &expr) = 0;
     virtual llvm::Value* visitIfExpr(IfExpr &expr) = 0;
+    virtual llvm::Value* visitForExpr(ForExpr &expr) = 0;
 
     virtual llvm::Value* visitFcnPrototype(FcnPrototype &proto) = 0;
     virtual llvm::Value* visitFcn(Fcn &fcn) = 0;
@@ -37,6 +39,7 @@ public:
     llvm::Value* visitBinaryExpr(BinaryExpr &expr) override;
     llvm::Value* visitCallExpr(CallExpr &expr) override;
     llvm::Value* visitIfExpr(IfExpr &expr) override;
+    llvm::Value* visitForExpr(ForExpr &expr) override;
 
     llvm::Value* visitFcnPrototype(FcnPrototype &proto) override;
     llvm::Value* visitFcn(Fcn &fcn) override;

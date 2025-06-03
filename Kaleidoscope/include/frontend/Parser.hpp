@@ -166,6 +166,8 @@ private:
                 return parseParenExpr();
             case tok_if:
                 return parseIfExpr();
+            case tok_for:
+                return parseForExpr();
         }
     }
 
@@ -274,6 +276,58 @@ private:
         }
 
         return std::make_unique<IfExpr>(std::move(Cond), std::move(Then), std::move(Else));
+    }
+
+    std::unique_ptr<Expr> parseForExpr() {
+        fLexer.advance();
+
+        if (fLexer.getCurrentToken() != tok_identifier) {
+            return logErrorAndReturnNull<ForExpr>("Expected identifier after for");
+        }
+
+        std::string idName = fLexer.getIdentifierStr();
+        fLexer.advance();
+
+        if (fLexer.getCurrentToken() != '=') {
+            return logErrorAndReturnNull<ForExpr>("Expected '=' after for identifer");
+        }
+        fLexer.advance();
+
+        auto start = parseExpression();
+        if (!start) {
+            return nullptr;
+        }
+        if (fLexer.getCurrentToken() != tok_comma) {
+            return logErrorAndReturnNull<ForExpr>("Expected ',' after for start value");
+        }
+        fLexer.advance();
+
+        auto end = parseExpression();
+        if (!end) {
+            return nullptr;
+        }
+
+        std::unique_ptr<Expr> step;
+        if (fLexer.getCurrentToken() == tok_comma) {
+            fLexer.advance();
+            step = parseExpression();
+            if (!step) {
+                return nullptr;
+            }
+        }
+
+        if (fLexer.getCurrentToken() != tok_in) {
+            return logErrorAndReturnNull<ForExpr>("Expected 'in' after for");
+        }
+        fLexer.advance();
+
+        auto body = parseExpression();
+        if (!body) {
+            return nullptr;
+        }
+        
+        return std::make_unique<ForExpr>(idName, std::move(start), 
+                        std::move(end),std::move(step), std::move(body));
     }
 };
 } // namespace lang

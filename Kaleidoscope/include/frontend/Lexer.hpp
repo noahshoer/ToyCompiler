@@ -23,6 +23,9 @@ enum Token : int {
     tok_if = -6,
     tok_then = -7,
     tok_else = -8,
+
+    tok_for = -9,
+    tok_in = -10
 };
 
 static bool isposnum(char c) {
@@ -139,6 +142,12 @@ private:
         }
         if (word == "else") {
             return tok_else;
+        }
+        if (word == "for") {
+            return tok_for;
+        }
+        if (word == "in") {
+            return tok_in;
         }
         return tok_identifier;
     }

@@ -120,6 +120,10 @@ llvm::Value* CodegenVisitor::visitIfExpr(IfExpr &expr) {
     return pn;
 }
 
+llvm::Value* CodegenVisitor::visitForExpr(ForExpr &expr) {
+    return nullptr;
+}
+
 llvm::Value* CodegenVisitor::visitFcnPrototype(FcnPrototype &proto) {
     // Create a function prototype in LLVM IR
     std::vector<llvm::Type*> argTypes(proto.getArgs().size(), llvm::Type::getDoubleTy(*context));

@@ -42,6 +42,18 @@ TEST(Parser, ParseVariableExpr) {
     EXPECT_EQ(fcn->getBody()->getType(), "Variable");
 }
 
+TEST(Parser, ParseBinaryExpr) {
+    std::istringstream input("1 + 2");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto fcn = parser.parseTopLevelExpr();
+    ASSERT_NE(fcn, nullptr);
+    EXPECT_EQ(fcn->getName(), "__anon_expr");
+    EXPECT_EQ(fcn->getBody()->getType(), "Binary");
+}
+
 TEST(Parser, ParseCallExprNoArgs) {
     std::istringstream input("bar()");
     Lexer lexer(input);
@@ -100,6 +112,39 @@ TEST(Parser, ParseIfExpr) {
     EXPECT_EQ(expr->getBody()->getType(), "If-Then-Else");
 }
 
+TEST(Parser, ParseForExpr) {
+    std::istringstream input("for i = 1, i < 10, 1.0 in i");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto expr = parser.parseTopLevelExpr();
+    ASSERT_NE(expr->getBody(), nullptr);
+    EXPECT_EQ(expr->getBody()->getType(), "ForLoop");
+}
+
+TEST(Parser, ParseForExprNoStep) {
+    std::istringstream input("for i = 1, i < 10 in i");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto expr = parser.parseTopLevelExpr();
+    ASSERT_NE(expr->getBody(), nullptr);
+    EXPECT_EQ(expr->getBody()->getType(), "ForLoop");
+}
+
+TEST(Parser, ParseForExprEndNum) {
+    std::istringstream input("for i = 1, 10, 1 in i");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto expr = parser.parseTopLevelExpr();
+    ASSERT_NE(expr->getBody(), nullptr);
+    EXPECT_EQ(expr->getBody()->getType(), "ForLoop");
+}
+
 TEST(Parser, ParseDefinition) {
     std::istringstream input("def foo(x y) x + y");
     Lexer lexer(input);
@@ -135,17 +180,14 @@ TEST(Parser, ParseExternMultipleArgs) {
     EXPECT_EQ(proto->getArgs().size(), 3);
 }
 
-
-TEST(Parser, ParseTopLevelExpr) {
-    std::istringstream input("1 + 2");
+TEST(Parser, ParseUnknownTokenError) {
+    std::istringstream input("@");
     Lexer lexer(input);
     lexer.advance();
     Parser parser(lexer);
 
-    auto fcn = parser.parseTopLevelExpr();
-    ASSERT_NE(fcn, nullptr);
-    EXPECT_EQ(fcn->getName(), "__anon_expr");
-    EXPECT_EQ(fcn->getBody()->getType(), "Binary");
+    auto expr = parser.parseTopLevelExpr();
+    EXPECT_EQ(expr, nullptr);
 }
 
 TEST(Parser, ParseCallExprMissingClosingParen) {
@@ -208,16 +250,6 @@ TEST(Parser, ParseExternNoParentheses) {
     EXPECT_EQ(proto, nullptr);
 }
 
-TEST(Parser, ParseUnknownTokenError) {
-    std::istringstream input("@");
-    Lexer lexer(input);
-    lexer.advance();
-    Parser parser(lexer);
-
-    auto expr = parser.parseTopLevelExpr();
-    EXPECT_EQ(expr, nullptr);
-}
-
 TEST(Parser, ParseIfExprNoThen) {
     std::istringstream input("if x < 10 else 10");
     Lexer lexer(input);
@@ -260,6 +292,86 @@ TEST(Parser, ParseIfExprBadThen) {
 
 TEST(Parser, ParseIfExprBadElse) {
     std::istringstream input("if x < 10 then 1 else @");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto expr = parser.parseTopLevelExpr();
+    EXPECT_FALSE(expr);
+}
+
+TEST(Parser, ParseForExprBadId) {
+    std::istringstream input("for @ = 1, i < 10, 1 in i");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto expr = parser.parseTopLevelExpr();
+    EXPECT_FALSE(expr);
+}
+
+TEST(Parser, ParseForExprNoEqual) {
+    std::istringstream input("for i 1, i < 10, 1 in i");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto expr = parser.parseTopLevelExpr();
+    EXPECT_FALSE(expr);
+}
+
+TEST(Parser, ParseForExprBadStart) {
+    std::istringstream input("for i = @, i < 10, 1 in i");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto expr = parser.parseTopLevelExpr();
+    EXPECT_FALSE(expr);
+}
+
+TEST(Parser, ParseForExprNoCommaAfterStart) {
+    std::istringstream input("for i = @ i < 10, 1 in i");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto expr = parser.parseTopLevelExpr();
+    EXPECT_FALSE(expr);
+}
+
+TEST(Parser, ParseForExprCommaNoStepIsNull) {
+    std::istringstream input("for i = 1, i < 10, in i");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto expr = parser.parseTopLevelExpr();
+    EXPECT_FALSE(expr);
+}
+
+TEST(Parser, ParseForExprBadStep) {
+    std::istringstream input("for i = 1, i < 10, @ in i");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto expr = parser.parseTopLevelExpr();
+    EXPECT_FALSE(expr);
+}
+
+TEST(Parser, ParseForExprBadBody) {
+    std::istringstream input("for i = 1, i < 10, 1 in @");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto expr = parser.parseTopLevelExpr();
+    EXPECT_FALSE(expr);
+}
+
+TEST(Parser, ParseForExprNoIn) {
+    std::istringstream input("for i = 1, i < 10, 1 i");
     Lexer lexer(input);
     lexer.advance();
     Parser parser(lexer);

@@ -186,6 +186,20 @@ TEST(LexerTest, GetCurrentTokenElse) {
     EXPECT_EQ(lexer.getCurrentToken(), tok_else);
 }
 
+TEST(LexerTest, GetCurrentTokenFor) {
+    std::istringstream iss("for");
+    Lexer lexer(iss);
+    lexer.advance(); // def
+    EXPECT_EQ(lexer.getCurrentToken(), tok_for);
+}
+
+TEST(LexerTest, GetCurrentTokenIn) {
+    std::istringstream iss("in");
+    Lexer lexer(iss);
+    lexer.advance(); // def
+    EXPECT_EQ(lexer.getCurrentToken(), tok_in);
+}
+
 TEST(LexerTest, ConsumeAdvancesOnCorrectToken) {
     std::istringstream iss("def extern");
     Lexer lexer(iss);

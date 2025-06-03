@@ -301,3 +301,80 @@ TEST_F(IfExprTest, VisitIfExpr) {
     llvm::Value* result = expr->accept(mockVisitor);
     EXPECT_EQ(result, value);
 }
+
+class ForExprTest : public MockedValueVisitorTest {
+protected:
+    void SetUp() override {
+        MockedValueVisitorTest::SetUp();
+        auto Start = std::make_unique<NumberExpr>(0);
+        start = Start.get();
+        auto End = std::make_unique<BinaryExpr>('<', 
+            std::make_unique<VariableExpr>(loopId), 
+            std::make_unique<NumberExpr>(10));
+        end = End.get();
+        auto Step = std::make_unique<NumberExpr>(1);
+        step = Step.get();
+        std::vector<std::unique_ptr<Expr>> args;
+        args.push_back(std::make_unique<NumberExpr>(1.0));
+        auto Body = std::make_unique<CallExpr>("foo", std::move(args));
+        body = Body.get();
+        expr = std::make_unique<ForExpr>(loopId, std::move(Start), std::move(End),
+                std::move(Step), std::move(Body));
+    }
+
+    std::string loopId = "i";
+    std::unique_ptr<ForExpr> expr;
+    Expr* start;
+    Expr* end;
+    Expr* step;
+    Expr* body;
+};
+
+TEST_F(ForExprTest, GetTypeReturnsForLoop) {
+    EXPECT_EQ(expr->getType(), "ForLoop");
+}
+
+TEST_F(ForExprTest, ToString) {
+    EXPECT_EQ(expr->toString(), "for " + start->toString() + ", "
+        + end->toString() + ", " + step->toString() + "\n"
+        + "\t" + body->toString());
+}
+
+TEST_F(ForExprTest, GetVarName) {
+    EXPECT_EQ(expr->getVarName(), loopId);
+}
+
+TEST_F(ForExprTest, GetStart) {
+    EXPECT_EQ(expr->getStart(), start);
+}
+
+TEST_F(ForExprTest, GetEnd) {
+    EXPECT_EQ(expr->getEnd(), end);
+}
+
+TEST_F(ForExprTest, GetStep) {
+    EXPECT_EQ(expr->getStep(), step);
+}
+
+TEST_F(ForExprTest, GetBody) {
+    EXPECT_EQ(expr->getBody(), body);
+}
+
+TEST_F(ForExprTest, AcceptASTVisitor) {
+    MockASTVisitor mockVisitor;
+
+    EXPECT_CALL(mockVisitor, visitForExpr(testing::Ref(*expr)))
+        .Times(1);
+
+    expr->accept(mockVisitor); 
+}
+
+TEST_F(ForExprTest, VisitIfExpr) {
+    MockValueVisitor mockVisitor;
+
+    EXPECT_CALL(mockVisitor, visitForExpr(testing::Ref(*expr)))
+        .WillOnce(testing::Return(value));
+
+    llvm::Value* result = expr->accept(mockVisitor);
+    EXPECT_EQ(result, value);
+}

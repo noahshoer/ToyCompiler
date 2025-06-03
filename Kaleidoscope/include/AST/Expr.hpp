@@ -142,7 +142,7 @@ class IfExpr : public Expr {
 
 public:
     IfExpr(std::unique_ptr<Expr> aCond, std::unique_ptr<Expr> aThen,
-        std::unique_ptr<Expr> aElse) 
+            std::unique_ptr<Expr> aElse) 
         : Cond(std::move(aCond)), Then(std::move(aThen)), Else(std::move(aElse)) {}
 
     void accept(ASTVisitor &visitor) override;
@@ -169,6 +169,52 @@ public:
         result += "\t" + Then->toString() + "\n";
         result += "else\n";
         result += "\t" + Else->toString();
+        return result;
+    }
+};
+
+class ForExpr : public Expr {
+    std::string varName;
+    std::unique_ptr<Expr> start, end, step, body;
+
+public:
+    ForExpr(const std::string& aVarName, std::unique_ptr<Expr> aStart,
+            std::unique_ptr<Expr> aEnd, std::unique_ptr<Expr> aStep,
+            std::unique_ptr<Expr> aBody)
+        : varName(aVarName), start(std::move(aStart)), end(std::move(aEnd)),
+            step(std::move(aStep)), body(std::move(aBody)) {}
+
+    void accept(ASTVisitor &visitor) override;
+    llvm::Value* accept(ValueVisitor &visitor) override;
+
+    const std::string& getVarName() const {
+        return varName;
+    }
+
+    Expr* getStart() const {
+        return start.get();
+    }
+
+    Expr* getEnd() const {
+        return end.get();
+    }
+
+    Expr* getStep() const {
+        return step.get();
+    }
+
+    Expr* getBody() const {
+        return body.get();
+    }
+
+    const std::string getType() const override {
+        return "ForLoop";
+    }
+
+    std::string toString() const override {
+        std::string result = "for " + start->toString() + ", "
+            + end->toString() + ", " + step->toString() + "\n"
+            + "\t" + body->toString();
         return result;
     }
 };
