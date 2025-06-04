@@ -121,7 +121,71 @@ llvm::Value* CodegenVisitor::visitIfExpr(IfExpr &expr) {
 }
 
 llvm::Value* CodegenVisitor::visitForExpr(ForExpr &expr) {
-    return nullptr;
+    // Emit the start code, variable is not in scope
+    llvm::Value* startVal = expr.getStart()->accept(*this);
+    if (!startVal) {
+        return nullptr;
+    }
+
+    // Insert loop header block after the current block
+    llvm::Function* function = builder->GetInsertBlock()->getParent();
+    llvm::BasicBlock* preHeaderBB = builder->GetInsertBlock();
+    llvm::BasicBlock* loopBB = llvm::BasicBlock::Create(*context, "loop", function);
+
+    // Explicitly add a fal through from the current block
+    builder->CreateBr(loopBB);
+
+    builder->SetInsertPoint(loopBB);
+    llvm::PHINode* var = builder->CreatePHI(llvm::Type::getDoubleTy(*context),
+                                            2, expr.getVarName());
+    var->addIncoming(startVal, preHeaderBB);
+
+    // Shadow the var if it exists
+    llvm::Value* oldVal = namedValues[expr.getVarName()];
+    namedValues[expr.getVarName()] = var;
+
+    // Emit the body, ignoring the computed value
+    if (!expr.getBody()->accept(*this)) {
+        return nullptr;
+    }
+
+    // Emit the step value, with 1.0 as the default
+    llvm::Value* stepVal = nullptr;
+    if (expr.getStep()) {
+        stepVal = expr.getStep()->accept(*this);
+        if (!stepVal) {
+            return nullptr;
+        }
+    } else {
+        stepVal = llvm::ConstantFP::get(*context, llvm::APFloat(1.0));
+    }
+    llvm::Value* nextVar = builder->CreateFAdd(var, stepVal, "nextvar");
+
+    // Compute the end condition
+    llvm::Value* endCond = expr.getEnd()->accept(*this);
+    if (!endCond) {
+        return nullptr;
+    }
+    endCond = builder->CreateFCmpONE(endCond, llvm::ConstantFP::get(*context, 
+                                    llvm::APFloat(0.0)), "loopcond");
+
+    // Evaluate to check for exit
+    llvm::BasicBlock* loopEndBB = builder->GetInsertBlock();
+    llvm::BasicBlock* afterBB = llvm::BasicBlock::Create(*context, "afterloop", function);
+    builder->CreateCondBr(endCond, loopBB, afterBB);
+    builder->SetInsertPoint(afterBB);
+
+    // New PHI entry for back edge
+    var->addIncoming(nextVar, loopEndBB);
+    // Restore unshadowed variable
+    if (oldVal) {
+        namedValues[expr.getVarName()] = oldVal;
+    } else {
+        namedValues.erase(expr.getVarName());
+    }
+
+    // For expr always returns 0.0
+    return llvm::Constant::getNullValue(llvm::Type::getDoubleTy(*context));
 }
 
 llvm::Value* CodegenVisitor::visitFcnPrototype(FcnPrototype &proto) {

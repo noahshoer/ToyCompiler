@@ -66,6 +66,8 @@ private:
     /// the top-level container for LLVM IR code.
     llvm::Module* module;
 
+    // Currently only mantains function arguments and loop
+    // induction variables
     std::map<std::string, llvm::Value *> namedValues;
 
     void logError(const std::string &message) {
