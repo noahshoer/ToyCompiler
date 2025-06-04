@@ -180,6 +180,58 @@ TEST(Parser, ParseExternMultipleArgs) {
     EXPECT_EQ(proto->getArgs().size(), 3);
 }
 
+TEST(Parser, ParseCustomBinaryOp) {
+    std::istringstream input("def binary% 5 (x y) x");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto fcn = parser.parseDefinition();
+    ASSERT_NE(fcn, nullptr);
+    EXPECT_EQ(fcn->getName(), "binary%");
+    EXPECT_TRUE(fcn->getPrototype()->isBinaryOp());
+    EXPECT_EQ(fcn->getPrototype()->getBinaryPrecedence(), 5);
+}
+
+TEST(Parser, ParseCustomUnaryOp) {
+    std::istringstream input("def unary! (x) x");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto fcn = parser.parseDefinition();
+    ASSERT_NE(fcn, nullptr);
+    EXPECT_EQ(fcn->getName(), "unary!");
+    EXPECT_TRUE(fcn->getPrototype()->isUnaryOp());
+}
+
+TEST(Parser, ParseCustomBinaryOpNoPrecedence) {
+    std::istringstream input("def binary@ (x y) x");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto fcn = parser.parseDefinition();
+    ASSERT_NE(fcn, nullptr);
+    EXPECT_EQ(fcn->getName(), "binary@");
+    ASSERT_NE(fcn, nullptr);
+    EXPECT_EQ(fcn->getName(), "binary@");
+    EXPECT_TRUE(fcn->getPrototype()->isBinaryOp());
+    EXPECT_EQ(fcn->getPrototype()->getBinaryPrecedence(), 30);
+}
+
+TEST(Parser, ParseUnaryForExistingBinary) {
+    std::istringstream input("def unary-(v) 0-v;");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto fcn = parser.parseDefinition();
+    ASSERT_NE(fcn, nullptr);
+    EXPECT_EQ(fcn->getName(), "unary-");
+    EXPECT_TRUE(fcn->getPrototype()->isUnaryOp());
+}
+
 TEST(Parser, ParseUnknownTokenError) {
     std::istringstream input("@");
     Lexer lexer(input);
@@ -378,4 +430,75 @@ TEST(Parser, ParseForExprNoIn) {
 
     auto expr = parser.parseTopLevelExpr();
     EXPECT_FALSE(expr);
+}
+
+TEST(Parser, NoBinaryUnaryOperator) {
+    std::istringstream input("def binary 5 (x y) x");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto fcn = parser.parseDefinition();
+    EXPECT_FALSE(fcn);
+}
+
+TEST(Parser, InvalidBinaryPrecedence) {
+    std::istringstream input("def binary% 101 (x y) x");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto fcn = parser.parseDefinition();
+    EXPECT_FALSE(fcn);
+}
+
+TEST(Parser, NoOpenParenForCustomOp) {
+    std::istringstream input("def binary% 101 x y) x");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto fcn = parser.parseDefinition();
+    EXPECT_FALSE(fcn);
+}
+
+TEST(Parser, NoCloseParenForCustomOp) {
+    std::istringstream input("def binary% 101 (x y x");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto fcn = parser.parseDefinition();
+    EXPECT_FALSE(fcn);
+}
+
+TEST(Parser, BinaryArgSizeMismatch) {
+    std::istringstream input("def binary% 101 (x) x");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto fcn = parser.parseDefinition();
+    EXPECT_FALSE(fcn);
+}
+
+
+TEST(Parser, UnaryNoPrecedenceAllowed) {
+    std::istringstream input("def unary! 10 (x) x");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto fcn = parser.parseDefinition();
+    EXPECT_FALSE(fcn);
+}
+
+TEST(Parser, UnaryArgSizeMismatch) {
+    std::istringstream input("def unary! (x y) x");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto fcn = parser.parseDefinition();
+    EXPECT_FALSE(fcn);
 }

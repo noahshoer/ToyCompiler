@@ -14,6 +14,10 @@ void BinaryExpr::accept(ASTVisitor &visitor) {
     visitor.visitBinaryExpr(*this);
 }
 
+void UnaryExpr::accept(ASTVisitor &visitor) {
+    visitor.visitUnaryExpr(*this);
+}
+
 void CallExpr::accept(ASTVisitor &visitor) {
     visitor.visitCallExpr(*this);
 }
@@ -36,6 +40,10 @@ llvm::Value* VariableExpr::accept(ValueVisitor &visitor) {
 
 llvm::Value* BinaryExpr::accept(ValueVisitor &visitor) {
     return visitor.visitBinaryExpr(*this);
+}
+
+llvm::Value* UnaryExpr::accept(ValueVisitor &visitor) {
+    return visitor.visitUnaryExpr(*this);
 }
 
 llvm::Value* CallExpr::accept(ValueVisitor &visitor) {

@@ -158,6 +158,61 @@ TEST_F(MockedValueVisitorTest, VisitBinaryExpr) {
     EXPECT_EQ(result, value);
 }
 
+// UnaryExppr tests
+TEST(UnaryExprTest, GetTypeReturnsBinary) {
+    auto operand = std::make_unique<NumberExpr>(1.0);
+    UnaryExpr expr('!', std::move(operand));
+    EXPECT_EQ(expr.getType(), "Unary");
+}
+
+TEST(UnaryExprTest, ToStringReturnsCorrectFormat) {
+    auto operand = std::make_unique<NumberExpr>(1.0);
+    UnaryExpr expr('!', std::move(operand));
+    EXPECT_EQ(expr.toString(), "!1.000000");
+}
+
+TEST(UnaryExprTest, ToStringWithVariable) {
+    auto operand = std::make_unique<VariableExpr>("x");
+    UnaryExpr expr('!', std::move(operand));
+    EXPECT_EQ(expr.toString(), "!x");
+}
+
+TEST(UnaryExprTest, GetOpReturnsCorrectOperator) {
+    auto operand = std::make_unique<VariableExpr>("x");
+    auto opPtr = operand.get();
+    UnaryExpr expr('!', std::move(operand));
+    EXPECT_EQ(expr.getOp(), '!');
+}
+
+TEST(UnaryExprTest, GetOperand) {
+    auto operand = std::make_unique<VariableExpr>("x");
+    auto opPtr = operand.get();
+    UnaryExpr expr('!', std::move(operand));
+    EXPECT_EQ(expr.getOperand(), opPtr);
+}
+
+TEST(UnaryExprTest, AcceptASTVisitor) {
+    MockASTVisitor mockVisitor;
+    auto operand = std::make_unique<NumberExpr>(1.0);
+    UnaryExpr expr('!', std::move(operand));
+
+    EXPECT_CALL(mockVisitor, visitUnaryExpr(testing::Ref(expr)))
+        .Times(1);
+
+    expr.accept(mockVisitor);
+}
+
+TEST_F(MockedValueVisitorTest, VisitUnaryExpr) {
+    MockValueVisitor mockVisitor;
+    auto operand = std::make_unique<NumberExpr>(1.0);
+    UnaryExpr expr('!', std::move(operand));
+
+    EXPECT_CALL(mockVisitor, visitUnaryExpr(testing::Ref(expr)))
+        .WillOnce(testing::Return(value));
+
+    llvm::Value* result = expr.accept(mockVisitor);
+    EXPECT_EQ(result, value);
+}
 // CallExpr tests
 TEST(CallExprTest, GetTypeReturnsCall) {
     std::vector<std::unique_ptr<Expr>> args;

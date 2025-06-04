@@ -2,16 +2,10 @@
 
 #include "AST/Expr.hpp"
 #include "AST/Fcn.hpp"
+#include "AST/Precedence.hpp"
 #include "Lexer.hpp"
-#include <unordered_map>
 
 namespace lang {
-static std::unordered_map<char, int> BIN_OP_PRECEDENCE = {
-    {'<', 10},
-    {'+', 20},
-    {'-', 20},
-    {'*', 40}
-};
 
 class Parser {
 public:
@@ -143,7 +137,7 @@ private:
     /// It is of the form:
     ///     <primary> <binOp> <primary> <binOp> <primary> ...
     std::unique_ptr<Expr> parseExpression() {
-        auto LHS = parsePrimary();
+        auto LHS = parseUnary();
         if (!LHS) 
             return nullptr;
 
@@ -205,7 +199,7 @@ private:
             int binOp = fLexer.getCurrentToken();
             fLexer.consume(Token(binOp)); // Consume the operator token
 
-            auto RHS = parsePrimary();
+            auto RHS = parseUnary();
             if (!RHS) 
                 return nullptr;
 
@@ -222,16 +216,52 @@ private:
 
     /// Parses a function prototype, which is of the form:
     ///     <identifier> ( <identifier> , ... )
+    ///     <binary><CHAR> number? (id id)
     std::unique_ptr<FcnPrototype> parsePrototype() {
-        if (fLexer.getCurrentToken() != tok_identifier) {
-            return logErrorAndReturnNull<FcnPrototype>("Expected function name in prototype");
+        std::string fcnName;
+
+        unsigned Kind = 0; // 0 = ID, 1 = Unary, 2 = Binary
+        unsigned BinaryPrecedence = 30;
+
+        switch (fLexer.getCurrentToken()) {
+            default:
+                return logErrorAndReturnNull<FcnPrototype>("Expected function name in prototype");
+            case tok_identifier:
+                fcnName = fLexer.getIdentifierStr();
+                Kind = 0;
+                fLexer.consume(tok_identifier);
+                break;
+            case tok_unary:
+                fLexer.consume(tok_unary);
+                if (!isascii(fLexer.getCurrentToken()) || std::isalnum(fLexer.getCurrentToken())) {
+                    return logErrorAndReturnNull<FcnPrototype>("Expected unary operator");
+                }
+                fcnName = "unary";
+                fcnName += (char)fLexer.getCurrentToken();
+                Kind = 1;
+                fLexer.advance();
+                break;
+            case tok_binary:
+                fLexer.consume(tok_binary);
+                if (!isascii(fLexer.getCurrentToken()) || std::isalnum(fLexer.getCurrentToken())) {
+                    return logErrorAndReturnNull<FcnPrototype>("Expected binary operator");
+                }
+                fcnName = "binary";
+                fcnName += (char)fLexer.getCurrentToken();
+                Kind = 2;
+                fLexer.advance();
+
+                if (fLexer.getCurrentToken() == tok_number) {
+                    if (fLexer.getNumVal() < 1 || fLexer.getNumVal() > 100) {
+                        return logErrorAndReturnNull<FcnPrototype>("Invalid precedence, must be between 1-100");
+                    }
+                    BinaryPrecedence = (unsigned)fLexer.getNumVal();
+                    fLexer.consume(tok_number);
+                }
+                break;
         }
-
-        std::string fcnName = fLexer.getIdentifierStr();
-        fLexer.consume(tok_identifier);
-
         if (fLexer.getCurrentToken() != tok_open_paren) {
-            return logErrorAndReturnNull<FcnPrototype>("Expected '(' in function prototype");
+            return logErrorAndReturnNull<FcnPrototype>("Expected '(' in prototype");
         }
 
         // What about commas?
@@ -244,7 +274,12 @@ private:
             return logErrorAndReturnNull<FcnPrototype>("Expected ')' in function prototype");
         }
         fLexer.consume(tok_close_paren);
-        return std::make_unique<FcnPrototype>(fcnName, std::move(argNames));
+
+        if (Kind && argNames.size() != Kind) {
+            return logErrorAndReturnNull<FcnPrototype>("Invalid number of operands for operator");
+        }
+        return std::make_unique<FcnPrototype>(fcnName, std::move(argNames), 
+                                    Kind != 0, BinaryPrecedence);
     }
 
     std::unique_ptr<Expr> parseIfExpr() {
@@ -293,7 +328,9 @@ private:
         }
         fLexer.advance();
 
-        auto start = parseExpression();
+        // Don't use parseExpression to ensure parseUnary is not called
+        // upfront, that can swallow a missing comma
+        auto start = parsePrimary();
         if (!start) {
             return nullptr;
         }
@@ -328,6 +365,22 @@ private:
         
         return std::make_unique<ForExpr>(idName, std::move(start), 
                         std::move(end),std::move(step), std::move(body));
+    }
+
+    /// unary of the form:
+    ///     <primary>
+    ///     unary<op>
+    std::unique_ptr<Expr> parseUnary() {
+        auto curTok = fLexer.getCurrentToken();
+        if (!isascii(curTok) || curTok == tok_open_paren || curTok == tok_comma) {
+            return parsePrimary();
+        }
+
+        fLexer.advance();
+        if (auto operand = parseUnary()) {
+            return std::make_unique<UnaryExpr>(curTok, std::move(operand));
+        }
+        return nullptr;
     }
 };
 } // namespace lang

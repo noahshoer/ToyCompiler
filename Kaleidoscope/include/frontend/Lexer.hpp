@@ -25,15 +25,14 @@ enum Token : int {
     tok_else = -8,
 
     tok_for = -9,
-    tok_in = -10
+    tok_in = -10,
+
+    tok_binary = -11,
+    tok_unary = -12
 };
 
-static bool isposnum(char c) {
-    return isdigit(c) || c == '.';
-}
-
 static bool isnum(char c) {
-    return isposnum(c) || c == '-';
+    return isdigit(c) || c == '.';
 }
 
 static bool iseol(char c) {
@@ -102,7 +101,7 @@ private:
                     decimal++;
                     assert(decimal < 2 && "Cannot handle multiple decimals in a number");
                 }
-            } while (isposnum(fLastChar));
+            } while (isnum(fLastChar));
             fNumVal = strtod(NumStr.c_str(), nullptr);
             return tok_number;
         }
@@ -148,6 +147,12 @@ private:
         }
         if (word == "in") {
             return tok_in;
+        }
+        if (word == "binary") {
+            return tok_binary;
+        }
+        if (word == "unary") {
+            return tok_unary;
         }
         return tok_identifier;
     }

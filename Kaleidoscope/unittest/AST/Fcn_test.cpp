@@ -1,3 +1,4 @@
+#include "gtest/gtest.h"
 #include <gmock/gmock.h>
 #include <memory>
 #include <string>
@@ -52,6 +53,73 @@ TEST_F(MockedValueVisitorTest, VisitFcnPrototype) {
     EXPECT_EQ(result, value);
 }
 
+TEST(FcnPrototypeTest, IsBinaryOp) {
+    std::vector<std::string> args = {"x", "y"};
+    FcnPrototype proto("gt>", args);
+    EXPECT_FALSE(proto.isBinaryOp());
+
+    proto = FcnPrototype("gt>", args, true);
+    EXPECT_TRUE(proto.isBinaryOp());
+}
+
+TEST(FcnPrototypeTest, IsUnaryOp) {
+    std::vector<std::string> args = {"x"};
+    FcnPrototype proto("not!", args);
+    EXPECT_FALSE(proto.isUnaryOp());
+
+    proto = FcnPrototype("not!", args, true);
+    EXPECT_TRUE(proto.isUnaryOp());
+}
+
+TEST(FcnPrototypeTest, IsNotBinaryOrUnary) {
+    std::vector<std::string> args = {"x", "y", "z"};
+    FcnPrototype proto("myFunc", args, true);
+    EXPECT_FALSE(proto.isBinaryOp());
+    EXPECT_FALSE(proto.isUnaryOp());
+}
+
+TEST(FcnPrototypeTest, GetOperatorNameBinary) {
+    std::vector<std::string> args = {"x", "y"};
+    FcnPrototype proto("gt>", args, true);
+    EXPECT_EQ(proto.getOperatorName(), '>');
+}
+
+TEST(FcnPrototypeTest, GetOperatorNameUnary) {
+    std::vector<std::string> args = {"x"};
+    FcnPrototype proto("not!", args, true);
+    EXPECT_EQ(proto.getOperatorName(), '!');
+}
+
+TEST(FcnPrototypeTest, GetOperatorNameDeath) {
+    std::vector<std::string> args = {"x", "y", "z"};
+    FcnPrototype proto("myFunc", args);
+    EXPECT_DEATH({proto.getOperatorName();},
+        "Not a binary or unary operator");
+
+    // Should also fail if not set as operators
+    args = {"x", "y"};
+    proto = FcnPrototype("gt>", args);
+    EXPECT_DEATH({proto.getOperatorName();},
+        "Not a binary or unary operator");
+
+    args = {"x"};
+    proto = FcnPrototype("not!", args);
+    EXPECT_DEATH({proto.getOperatorName();},
+        "Not a binary or unary operator");
+}
+
+TEST(FcnPrototypeTest, GetOperatorPrecedence) {
+    std::vector<std::string> args = {"x", "y"};
+    FcnPrototype proto("gt>", args, true, 11u);
+
+    EXPECT_EQ(proto.getBinaryPrecedence(), 11u);
+}
+
+TEST(FcnPrototypeTest, NoPrecedenceByDefault) {
+    std::vector<std::string> args = {"x", "y"};
+    FcnPrototype proto("gt>", args);
+    EXPECT_EQ(proto.getBinaryPrecedence(), 0u);
+}
 
 TEST(FcnTest, ConstructorAndGetType) {
     auto proto = std::make_unique<FcnPrototype>("bar", std::vector<std::string>{"a"});

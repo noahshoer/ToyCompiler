@@ -3,6 +3,7 @@
 
 #include "AST/Expr.hpp"
 #include "AST/Fcn.hpp"
+#include "AST/Precedence.hpp"
 #include "AST/PrototypeRegistry.hpp"
 #include "AST/ValueVisitor.hpp"
 
@@ -43,9 +44,27 @@ llvm::Value* CodegenVisitor::visitBinaryExpr(BinaryExpr &expr) {
             // as that is (at this moment) what Kaleidoscope uses for all its values
             return builder->CreateUIToFP(lhs, llvm::Type::getDoubleTy(*context), "booltmp");
         default:
-            logError("Invalid binary operator: " + std::string(1, expr.getOp()));
-            return nullptr;
+            break;
     }
+
+    // If not builtin, it is a custom op
+    llvm::Function* f = PrototypeRegistry::getFunction(std::string("binary") + expr.getOp(), *this);
+    assert(f && "binary operator not found!");
+
+    llvm::Value* ops[2] = {lhs, rhs};
+    return builder->CreateCall(f, ops, "binop");
+}
+
+llvm::Value* CodegenVisitor::visitUnaryExpr(UnaryExpr &expr) {
+    llvm::Value* operand = expr.getOperand()->accept(*this);
+    if (!operand) {
+        return nullptr;
+    }
+
+    llvm::Function* f = PrototypeRegistry::getFunction(std::string("unary") + expr.getOp(), *this);
+    assert(f && "unary operator not found!");
+
+    return builder->CreateCall(f, operand, "unop");
 }
 
 llvm::Value* CodegenVisitor::visitCallExpr(CallExpr &expr) {
@@ -142,7 +161,7 @@ llvm::Value* CodegenVisitor::visitForExpr(ForExpr &expr) {
 
     // Shadow the var if it exists
     llvm::Value* oldVal = namedValues[expr.getVarName()];
-    namedValues[expr.getVarName()] = var;
+    setNamedValue(expr.getVarName(), var);
 
     // Emit the body, ignoring the computed value
     if (!expr.getBody()->accept(*this)) {
@@ -179,7 +198,7 @@ llvm::Value* CodegenVisitor::visitForExpr(ForExpr &expr) {
     var->addIncoming(nextVar, loopEndBB);
     // Restore unshadowed variable
     if (oldVal) {
-        namedValues[expr.getVarName()] = oldVal;
+        setNamedValue(expr.getVarName(), oldVal);
     } else {
         namedValues.erase(expr.getVarName());
     }
@@ -205,11 +224,16 @@ llvm::Value* CodegenVisitor::visitFcnPrototype(FcnPrototype &proto) {
 
 llvm::Value* CodegenVisitor::visitFcn(Fcn &fcn) {
     auto protoName = fcn.getName();
+    auto &p = *fcn.getPrototype();
     PrototypeRegistry::addFcnPrototype(protoName, std::move(fcn.releasePrototype()));
     llvm::Function* function = PrototypeRegistry::getFunction(protoName, *this);
 
     if (!function) {
         return nullptr;
+    }
+
+    if (p.isBinaryOp()) {
+        BIN_OP_PRECEDENCE[p.getOperatorName()] = p.getBinaryPrecedence();
     }
 
     // Create a new basic block for the function body

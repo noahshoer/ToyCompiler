@@ -93,6 +93,35 @@ public:
     }
 };
 
+class UnaryExpr : public Expr {
+    char op;
+    std::unique_ptr<Expr> operand;
+
+public:
+    UnaryExpr(char Op, std::unique_ptr<Expr> Operand)
+        : op(Op), operand(std::move(Operand)) {}
+
+    void accept(ASTVisitor &visitor) override;
+    llvm::Value* accept(ValueVisitor &visitor) override;
+
+    const char getOp() const {
+        return op;
+    }
+
+    Expr* getOperand() const {
+        return operand.get();
+    }
+
+    const std::string getType() const override {
+        return "Unary";
+    }
+
+    std::string toString() const override {
+        return getOp() + operand->toString();
+    }
+
+};
+
 class CallExpr : public Expr {
     std::string callee;
     std::vector<std::unique_ptr<Expr>> args;

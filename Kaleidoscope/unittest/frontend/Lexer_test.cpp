@@ -36,22 +36,6 @@ TEST(LexerTest, RecognizesNumber) {
     EXPECT_DOUBLE_EQ(lexer.getNumVal(), 123);
 }
 
-TEST(LexerTest, RecognizesNumberNegative) {
-    std::istringstream iss("-123");
-    Lexer lexer(iss);
-    EXPECT_EQ(lexer.advance(), tok_number);
-    EXPECT_DOUBLE_EQ(lexer.getNumVal(), -123);
-}
-
-TEST(LexerTest, SplitsOnExtraNegative)  {
-    std::istringstream iss("-123-4");
-    Lexer lexer(iss);
-    EXPECT_EQ(lexer.advance(), tok_number);
-    EXPECT_DOUBLE_EQ(lexer.getNumVal(), -123);
-    EXPECT_EQ(lexer.advance(), tok_number);
-    EXPECT_DOUBLE_EQ(lexer.getNumVal(), -4);
-}
-
 TEST(LexerTest, RecognizesNumberWithLeadingZero) {
     std::istringstream iss("0123");
     Lexer lexer(iss);
@@ -198,6 +182,20 @@ TEST(LexerTest, GetCurrentTokenIn) {
     Lexer lexer(iss);
     lexer.advance(); // def
     EXPECT_EQ(lexer.getCurrentToken(), tok_in);
+}
+
+TEST(LexerTest, GetCurrentTokenBinary) {
+    std::istringstream iss("binary");
+    Lexer lexer(iss);
+    lexer.advance(); // def
+    EXPECT_EQ(lexer.getCurrentToken(), tok_binary);
+}
+
+TEST(LexerTest, GetCurrentTokenUnary) {
+    std::istringstream iss("unary");
+    Lexer lexer(iss);
+    lexer.advance(); // def
+    EXPECT_EQ(lexer.getCurrentToken(), tok_unary);
 }
 
 TEST(LexerTest, ConsumeAdvancesOnCorrectToken) {

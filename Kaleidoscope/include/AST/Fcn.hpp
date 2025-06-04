@@ -10,10 +10,14 @@
 class FcnPrototype : public ASTNode {
     std::string name;
     std::vector<std::string> args;
+    bool isOperator;
+    unsigned binaryPrecedence;
 
 public:
-    FcnPrototype(const std::string &Name, std::vector<std::string> Args)
-        : name(Name), args(std::move(Args)) {}
+    FcnPrototype(const std::string &Name, std::vector<std::string> Args,
+                    bool IsOperator = false, unsigned Prec = 0)
+        : name(Name), args(std::move(Args)), 
+            isOperator(IsOperator), binaryPrecedence(Prec) {}
         
     void accept(ASTVisitor &visitor) override;
     llvm::Value* accept(ValueVisitor &visitor) override;
@@ -29,6 +33,17 @@ public:
     const std::string getType() const override {
         return "FunctionPrototype";
     }
+
+    bool isUnaryOp() const { return isOperator && args.size() == 1; }
+    bool isBinaryOp() const { return isOperator && args.size() == 2; }
+
+    char getOperatorName() const {
+        assert(isUnaryOp() || isBinaryOp() && 
+            "Not a binary or unary operator");
+        return name[name.size() - 1];
+    }
+
+    unsigned getBinaryPrecedence() const { return binaryPrecedence; }
 };
 
 class Fcn : public ASTNode {

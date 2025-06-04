@@ -9,6 +9,7 @@ public:
     MOCK_METHOD(llvm::Value*, visitNumberExpr, (NumberExpr &expr), (override));
     MOCK_METHOD(llvm::Value*, visitVariableExpr, (VariableExpr &expr), (override));
     MOCK_METHOD(llvm::Value*, visitBinaryExpr, (BinaryExpr &expr), (override));
+    MOCK_METHOD(llvm::Value*, visitUnaryExpr, (UnaryExpr &expr), (override));
     MOCK_METHOD(llvm::Value*, visitCallExpr, (CallExpr &expr), (override));
     MOCK_METHOD(llvm::Value*, visitIfExpr, (IfExpr &expr), (override));
     MOCK_METHOD(llvm::Value*, visitForExpr, (ForExpr &expr), (override));

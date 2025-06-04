@@ -1,26 +1,21 @@
 #pragma once
 
+#include <map>
+
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include <llvm/IR/Value.h>
-#include <map>
 
-class NumberExpr;
-class VariableExpr;
-class BinaryExpr;
-class CallExpr;
-class IfExpr;
-class ForExpr;
-
-class FcnPrototype;
-class Fcn;
+#include "Expr.hpp"
+#include "Fcn.hpp"
 
 class ValueVisitor {
 public:
     virtual llvm::Value* visitNumberExpr(NumberExpr &expr) = 0;
     virtual llvm::Value* visitVariableExpr(VariableExpr &expr) = 0;
     virtual llvm::Value* visitBinaryExpr(BinaryExpr &expr) = 0;
+    virtual llvm::Value* visitUnaryExpr(UnaryExpr &expr) = 0;
     virtual llvm::Value* visitCallExpr(CallExpr &expr) = 0;
     virtual llvm::Value* visitIfExpr(IfExpr &expr) = 0;
     virtual llvm::Value* visitForExpr(ForExpr &expr) = 0;
@@ -37,6 +32,7 @@ public:
     llvm::Value* visitNumberExpr(NumberExpr &expr) override;
     llvm::Value* visitVariableExpr(VariableExpr &expr) override;
     llvm::Value* visitBinaryExpr(BinaryExpr &expr) override;
+    llvm::Value* visitUnaryExpr(UnaryExpr &expr) override;
     llvm::Value* visitCallExpr(CallExpr &expr) override;
     llvm::Value* visitIfExpr(IfExpr &expr) override;
     llvm::Value* visitForExpr(ForExpr &expr) override;

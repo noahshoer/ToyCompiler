@@ -11,7 +11,6 @@
 #include "llvm/Transforms/Scalar/Reassociate.h"
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
 
-#include "AST/ASTVisitor.hpp"
 #include "AST/PrototypeRegistry.hpp"
 #include "AST/ValueVisitor.hpp"
 #include "frontend/Parser.hpp"
@@ -29,7 +28,7 @@ public:
         : lexer(), parser(lexer) {
         
         // Prime the first token
-        fprintf(stdout, "ready> ");
+        fprintf(stderr, "ready> ");
         lexer.advance();   
 
         jit = ExitOnErr(KaleidoscopeJIT::Create());
@@ -50,10 +49,10 @@ public:
         while (true) {
             switch (lexer.getCurrentToken()) {
                 case tok_eof:
-                    fprintf(stdout, "Goodbye!\n");
+                    fprintf(stderr, "Goodbye!\n");
                     return;
                 case tok_semicolon: // ignore top-level semicolons.
-                    fprintf(stdout, "ready> ");
+                    fprintf(stderr, "ready> ");
                     lexer.advance();
                     break;
                 case tok_def:
@@ -163,7 +162,7 @@ private:
                 // Get the symbol's address and cast it to the correct type
                 // to call it as a native function
                 double (*FP)() = exprSym.getAddress().toPtr<double (*)()>();
-                fprintf(stdout, "Evaluated to %f\n", FP());
+                fprintf(stderr, "Evaluated to %f\n", FP());
 
                 // Remove the anonymous expression module from the JIT since
                 // we don't support re-evaluation of top level exprs
@@ -195,9 +194,9 @@ private:
     }
 
     void dumpImpl(Value* IR, const char* parseMsg) {
-        fprintf(stdout, parseMsg, "\n");
-        IR->print(outs());
-        fprintf(stdout, "\n");
+        fprintf(stderr, "%s\n", parseMsg);
+        IR->print(errs());
+        fprintf(stderr, "\n");
     }
 
     Parser parser;

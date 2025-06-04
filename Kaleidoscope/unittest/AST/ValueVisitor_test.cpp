@@ -2,8 +2,9 @@
 
 #include "AST/Expr.hpp"
 #include "AST/Fcn.hpp"
-#include "AST/ValueVisitor.hpp"
+#include "AST/Precedence.hpp"
 #include "AST/PrototypeRegistry.hpp"
+#include "AST/ValueVisitor.hpp"
 
 using namespace llvm;
 
@@ -95,8 +96,45 @@ TEST_F(CodegenVisitorTest, VisitBinaryExprLT) {
 
 TEST_F(CodegenVisitorTest, VisitBinaryExprNonOp) {
     BinaryExpr expr = makeBinaryExpr('a');
+    EXPECT_DEATH(visitor->visitBinaryExpr(expr), "binary operator not found");
+}
+
+TEST_F(CodegenVisitorTest, VisitCustomBinaryExpr) {
+    std::vector<std::string> args = {"x", "y"};
+    auto proto = std::make_unique<FcnPrototype>("binary`", args, true);
+    PrototypeRegistry::addFcnPrototype("binary`", std::move(proto));
+
+    BinaryExpr expr = makeBinaryExpr('`');
     Value* val = visitor->visitBinaryExpr(expr);
-    EXPECT_EQ(val, nullptr);
+    ASSERT_NE(val, nullptr);
+    EXPECT_TRUE(val->getType()->isDoubleTy());
+}
+
+// For unary operators, there are no predefined ops
+TEST_F(CodegenVisitorTest, VisitUnaryExprNonOp) {
+    UnaryExpr expr = UnaryExpr('`', std::make_unique<NumberExpr>(7));
+    EXPECT_DEATH(visitor->visitUnaryExpr(expr), "unary operator not found");
+}
+
+TEST_F(CodegenVisitorTest, VisitCustomUnaryOperator) {
+    std::vector<std::string> args = {"x"};
+    auto proto = std::make_unique<FcnPrototype>("unary`", args, true);
+    PrototypeRegistry::addFcnPrototype("unary`", std::move(proto));
+
+    UnaryExpr expr = UnaryExpr('`', std::make_unique<NumberExpr>(7));
+    Value* val = visitor->visitUnaryExpr(expr);
+    ASSERT_NE(val, nullptr);
+    EXPECT_TRUE(val->getType()->isDoubleTy());
+}
+
+TEST_F(CodegenVisitorTest, VisitCustomUnaryOperatorBadBody) {
+    std::vector<std::string> args = {"x"};
+    auto proto = std::make_unique<FcnPrototype>("unary`", args, true);
+    PrototypeRegistry::addFcnPrototype("unary`", std::move(proto));
+
+    UnaryExpr expr = UnaryExpr('`', std::make_unique<VariableExpr>("a"));
+    Value* val = visitor->visitUnaryExpr(expr);
+    EXPECT_FALSE(val);
 }
 
 TEST_F(CodegenVisitorTest, VisitCallExpr) {
@@ -282,11 +320,23 @@ TEST_F(CodegenVisitorTest, DISABLED_VisitFcnCreatesFunction) {
 TEST_F(CodegenVisitorTest, VisitFcnBadBody) {
     std::vector<std::string> args = {"x", "y"};
     auto proto = std::make_unique<FcnPrototype>("baz", args);
-    auto body = std::make_unique<BinaryExpr>(makeBinaryExpr('a'));
+    auto body = std::make_unique<VariableExpr>("a");
     Fcn fcn(std::move(proto), std::move(body));
     Value* val = visitor->visitFcn(fcn);
     // EXPECT_EQ(val, nullptr);
     auto function = static_cast<Function*>(val);
     EXPECT_FALSE(function->getParent())
         << "Function should be removed from its parent";
+}
+
+TEST_F(CodegenVisitorTest, VisitBinaryOpFcnSetsPrecedence) {
+    std::vector<std::string> args = {"x", "y"};
+    auto proto = std::make_unique<FcnPrototype>("binary`", args, true, 17);
+    // Use bad body on purpose to bail out and check precedence table
+    auto body = std::make_unique<VariableExpr>("a");
+    Fcn fcn(std::move(proto), std::move(body));
+    Value* val = visitor->visitFcn(fcn);
+    
+    EXPECT_EQ(BIN_OP_PRECEDENCE['`'], 17);
+    BIN_OP_PRECEDENCE.erase('`');
 }
