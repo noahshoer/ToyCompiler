@@ -19,6 +19,7 @@ public:
     virtual llvm::Value* visitCallExpr(CallExpr &expr) = 0;
     virtual llvm::Value* visitIfExpr(IfExpr &expr) = 0;
     virtual llvm::Value* visitForExpr(ForExpr &expr) = 0;
+    virtual llvm::Value* visitVarExpr(VarExpr &expr) = 0;
 
     virtual llvm::Value* visitFcnPrototype(FcnPrototype &proto) = 0;
     virtual llvm::Value* visitFcn(Fcn &fcn) = 0;
@@ -36,6 +37,7 @@ public:
     llvm::Value* visitCallExpr(CallExpr &expr) override;
     llvm::Value* visitIfExpr(IfExpr &expr) override;
     llvm::Value* visitForExpr(ForExpr &expr) override;
+    llvm::Value* visitVarExpr(VarExpr &expr) override;
 
     llvm::Value* visitFcnPrototype(FcnPrototype &proto) override;
     llvm::Value* visitFcn(Fcn &fcn) override;
@@ -48,8 +50,16 @@ public:
         fam = FAM;
     }
 
-    void setNamedValue(const std::string& name, llvm::Value* value) {
-        namedValues[name] = value;
+    void setNamedValue(const std::string& name, llvm::AllocaInst* allocaInst) {
+        namedValues[name] = allocaInst;
+    }
+
+    llvm::AllocaInst* createEntryBlockAlloca(llvm::Function* function, 
+                                                llvm::StringRef varName) {
+        llvm::IRBuilder<> tmpB(&function->getEntryBlock(),
+                                function->getEntryBlock().begin());
+        return tmpB.CreateAlloca(llvm::Type::getDoubleTy(*context),
+                                    nullptr, varName);
     }
 
 private:
@@ -64,7 +74,7 @@ private:
 
     // Currently only mantains function arguments and loop
     // induction variables
-    std::map<std::string, llvm::Value *> namedValues;
+    std::map<std::string, llvm::AllocaInst*> namedValues;
 
     void logError(const std::string &message) {
         fprintf(stderr, "Error: %s\n", message.c_str());

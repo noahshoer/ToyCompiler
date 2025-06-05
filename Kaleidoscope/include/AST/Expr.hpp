@@ -1,5 +1,6 @@
 #pragma once
 
+#include <format>
 #include <memory>
 #include <string>
 #include <vector>
@@ -16,6 +17,8 @@ public:
     const std::string getType() const override = 0;
     virtual std::string toString() const = 0;
 };
+
+using ExprUPtr = std::unique_ptr<Expr>;
 
 class NumberExpr : public Expr {
     double value;
@@ -35,7 +38,7 @@ public:
     }
 
     std::string toString() const override {
-        return std::to_string(value);
+        return std::format("{:.15g}", value);
     }
 };
 
@@ -63,10 +66,10 @@ public:
 
 class BinaryExpr : public Expr {
     char Op;
-    std::unique_ptr<Expr> LHS, RHS;
+    ExprUPtr LHS, RHS;
 
 public:
-    BinaryExpr(char op, std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs)
+    BinaryExpr(char op, ExprUPtr lhs, ExprUPtr rhs)
         : Op(op), LHS(std::move(lhs)), RHS(std::move(rhs)) {}
 
     void accept(ASTVisitor &visitor) override;
@@ -95,10 +98,10 @@ public:
 
 class UnaryExpr : public Expr {
     char op;
-    std::unique_ptr<Expr> operand;
+    ExprUPtr operand;
 
 public:
-    UnaryExpr(char Op, std::unique_ptr<Expr> Operand)
+    UnaryExpr(char Op, ExprUPtr Operand)
         : op(Op), operand(std::move(Operand)) {}
 
     void accept(ASTVisitor &visitor) override;
@@ -124,10 +127,10 @@ public:
 
 class CallExpr : public Expr {
     std::string callee;
-    std::vector<std::unique_ptr<Expr>> args;
+    std::vector<ExprUPtr> args;
 
 public:
-    CallExpr(const std::string &callee, std::vector<std::unique_ptr<Expr>> args)
+    CallExpr(const std::string &callee, std::vector<ExprUPtr> args)
         : callee(callee), args(std::move(args)) {}
 
     void accept(ASTVisitor &visitor) override;
@@ -167,11 +170,11 @@ public:
 };
 
 class IfExpr : public Expr {
-    std::unique_ptr<Expr> Cond, Then, Else;
+    ExprUPtr Cond, Then, Else;
 
 public:
-    IfExpr(std::unique_ptr<Expr> aCond, std::unique_ptr<Expr> aThen,
-            std::unique_ptr<Expr> aElse) 
+    IfExpr(ExprUPtr aCond, ExprUPtr aThen,
+            ExprUPtr aElse) 
         : Cond(std::move(aCond)), Then(std::move(aThen)), Else(std::move(aElse)) {}
 
     void accept(ASTVisitor &visitor) override;
@@ -204,12 +207,12 @@ public:
 
 class ForExpr : public Expr {
     std::string varName;
-    std::unique_ptr<Expr> start, end, step, body;
+    ExprUPtr start, end, step, body;
 
 public:
-    ForExpr(const std::string& aVarName, std::unique_ptr<Expr> aStart,
-            std::unique_ptr<Expr> aEnd, std::unique_ptr<Expr> aStep,
-            std::unique_ptr<Expr> aBody)
+    ForExpr(const std::string& aVarName, ExprUPtr aStart,
+            ExprUPtr aEnd, ExprUPtr aStep,
+            ExprUPtr aBody)
         : varName(aVarName), start(std::move(aStart)), end(std::move(aEnd)),
             step(std::move(aStep)), body(std::move(aBody)) {}
 
@@ -245,5 +248,51 @@ public:
             + end->toString() + ", " + step->toString() + "\n"
             + "\t" + body->toString();
         return result;
+    }
+};
+
+using VarNameVector = std::vector<std::pair<std::string, ExprUPtr>>;
+class VarExpr : public Expr {
+    VarNameVector varNames;
+    ExprUPtr body;
+
+public:
+    VarExpr(VarNameVector VarNames, ExprUPtr Body)
+        : varNames(std::move(VarNames)), body(std::move(Body)) {}
+
+    void accept(ASTVisitor &visitor) override;
+    llvm::Value* accept(ValueVisitor &visitor) override;
+
+    const std::string getType() const override {
+        return "Var";
+    }
+
+    std::string toString() const override {
+        std::string result = "var ";
+        for (const auto& var : varNames) {
+            result += var.first;
+            if (var.second) {
+                result += " = " + var.second->toString();
+            }
+            result += ", ";
+        }
+
+        result = result.substr(0, result.size() - 2);
+        if (body) {
+            result += " in\n" + body->toString();
+        }
+        return result;
+    }
+
+    std::vector<std::pair<std::string, Expr*>> getVarNames() const {
+        std::vector<std::pair<std::string, Expr*>> result;
+        for (const auto& var : varNames) {
+            result.push_back(std::make_pair(var.first, var.second.get()));
+        }
+        return result;
+    }
+
+    Expr* getBody() const {
+        return body.get();
     }
 };

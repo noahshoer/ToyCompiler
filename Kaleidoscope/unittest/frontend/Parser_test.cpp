@@ -14,7 +14,7 @@ TEST(Parser, ParseNumberExpr) {
     ASSERT_NE(fcn, nullptr);
     EXPECT_EQ(fcn->getName(), "__anon_expr");
     EXPECT_EQ(fcn->getBody()->getType(), "Number");
-    EXPECT_EQ(fcn->getBody()->toString(), "42.000000");
+    EXPECT_EQ(fcn->getBody()->toString(), "42");
 }
 
 TEST(Parser, ParseParenExpr) {
@@ -230,6 +230,42 @@ TEST(Parser, ParseUnaryForExistingBinary) {
     ASSERT_NE(fcn, nullptr);
     EXPECT_EQ(fcn->getName(), "unary-");
     EXPECT_TRUE(fcn->getPrototype()->isUnaryOp());
+}
+
+TEST(Parser, ParseVarExpr) {
+    std::istringstream input("var x in 1");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto fcn = parser.parseTopLevelExpr();
+    ASSERT_NE(fcn, nullptr);
+    EXPECT_EQ(fcn->getBody()->getType(), "Var");
+    EXPECT_EQ(static_cast<VarExpr*>(fcn->getBody())->getVarNames().size(), 1);
+    EXPECT_EQ(static_cast<VarExpr*>(fcn->getBody())->getBody()->getType(), "Number");
+}
+
+TEST(Parser, ParseVarExprWithAssignment) {
+    std::istringstream input("var x = 1 in 1");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto fcn = parser.parseTopLevelExpr();
+    ASSERT_NE(fcn, nullptr);
+    EXPECT_EQ(fcn->getBody()->getType(), "Var");
+}
+
+TEST(Parser, ParseVarExprMultipleArgs) {
+    std::istringstream input("var x = 1, y = 2, z in 1");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto fcn = parser.parseTopLevelExpr();
+    ASSERT_NE(fcn, nullptr);
+    EXPECT_EQ(fcn->getBody()->getType(), "Var");
+    EXPECT_EQ(static_cast<VarExpr*>(fcn->getBody())->getVarNames().size(), 3);
 }
 
 TEST(Parser, ParseUnknownTokenError) {
@@ -500,5 +536,75 @@ TEST(Parser, UnaryArgSizeMismatch) {
     Parser parser(lexer);
 
     auto fcn = parser.parseDefinition();
+    EXPECT_FALSE(fcn);
+}
+
+TEST(Parser, ParseVarExprJustVar) {
+    std::istringstream input("var");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto fcn = parser.parseTopLevelExpr();
+    EXPECT_FALSE(fcn);
+}
+
+TEST(Parser, ParseVarExprExtraComma) {
+    std::istringstream input("var x = 1, in 1");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto fcn = parser.parseTopLevelExpr();
+    EXPECT_FALSE(fcn);
+}
+
+TEST(Parser, ParseVarExprNoIn) {
+    std::istringstream input("var x = 1 1");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto fcn = parser.parseTopLevelExpr();
+    EXPECT_FALSE(fcn);
+}
+
+TEST(Parser, ParseVarExprBadAssignment) {
+    std::istringstream input("var x = @ in 1");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto fcn = parser.parseTopLevelExpr();
+    EXPECT_FALSE(fcn);
+}
+
+TEST(Parser, ParseVarExprNoBody) {
+    std::istringstream input("var x = 1 in");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto fcn = parser.parseTopLevelExpr();
+    EXPECT_FALSE(fcn);
+}
+
+TEST(Parser, ParseVarExprBadBody) {
+    std::istringstream input("var x = 1 in @");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto fcn = parser.parseTopLevelExpr();
+    EXPECT_FALSE(fcn);
+}
+
+TEST(Parser, ParseVarExprNoCommaInList) {
+    std::istringstream input("var x = 1 y = 2 in 1");
+    Lexer lexer(input);
+    lexer.advance();
+    Parser parser(lexer);
+
+    auto fcn = parser.parseTopLevelExpr();
     EXPECT_FALSE(fcn);
 }

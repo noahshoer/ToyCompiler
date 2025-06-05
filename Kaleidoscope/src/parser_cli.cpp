@@ -10,6 +10,7 @@
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/Reassociate.h"
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
+#include "llvm/Transforms/Utils/Mem2Reg.h"
 
 #include "AST/PrototypeRegistry.hpp"
 #include "AST/ValueVisitor.hpp"
@@ -92,6 +93,8 @@ private:
         si->registerCallbacks(*pic, mam.get());
         
         // Add transform passes.
+        // Promote allocas to registers
+        fpm->addPass(PromotePass());
         // Do simple peephole optimizatons and bit-twiddling optimizations
         fpm->addPass(InstCombinePass());
         // Reassociate expressions

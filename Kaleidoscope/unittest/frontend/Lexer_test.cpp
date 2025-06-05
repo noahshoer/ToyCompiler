@@ -198,6 +198,13 @@ TEST(LexerTest, GetCurrentTokenUnary) {
     EXPECT_EQ(lexer.getCurrentToken(), tok_unary);
 }
 
+TEST(LexerTest, GetCurrentTokenVar) {
+    std::istringstream iss("var");
+    Lexer lexer(iss);
+    lexer.advance(); // def
+    EXPECT_EQ(lexer.getCurrentToken(), tok_var);
+}
+
 TEST(LexerTest, ConsumeAdvancesOnCorrectToken) {
     std::istringstream iss("def extern");
     Lexer lexer(iss);

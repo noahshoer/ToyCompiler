@@ -24,7 +24,7 @@ TEST(NumberExprTest, GetTypeReturnsNumber) {
 
 TEST(NumberExprTest, ToStringReturnsValue) {
     NumberExpr expr(3.14);
-    EXPECT_EQ(expr.toString(), std::to_string(3.14));
+    EXPECT_EQ(expr.toString(), "3.14");
 }
 
 TEST(NumberExprTest, GetValueReturnsCorrectValue) {
@@ -102,21 +102,21 @@ TEST(BinaryExprTest, ToStringReturnsCorrectFormat) {
     auto lhs = std::make_unique<NumberExpr>(1.0);
     auto rhs = std::make_unique<NumberExpr>(2.0);
     BinaryExpr expr('*', std::move(lhs), std::move(rhs));
-    EXPECT_EQ(expr.toString(), "(1.000000 * 2.000000)");
+    EXPECT_EQ(expr.toString(), "(1 * 2)");
 }
 
 TEST(BinaryExprTest, ToStringWithVariable) {
     auto lhs = std::make_unique<VariableExpr>("x");
     auto rhs = std::make_unique<NumberExpr>(5.0);
     BinaryExpr expr('-', std::move(lhs), std::move(rhs));
-    EXPECT_EQ(expr.toString(), "(x - 5.000000)");
+    EXPECT_EQ(expr.toString(), "(x - 5)");
 }
 
 TEST(BinaryExprTest, GetLHSReturnsCorrectExpr) {
     auto lhs = std::make_unique<NumberExpr>(3.0);
     auto rhs = std::make_unique<NumberExpr>(4.0);
     BinaryExpr expr('+', std::move(lhs), std::move(rhs));
-    EXPECT_EQ(expr.getLHS()->toString(), "3.000000");
+    EXPECT_EQ(expr.getLHS()->toString(), "3");
 }
 
 TEST(BinaryExprTest, GetRHSReturnsCorrectExpr) {
@@ -168,7 +168,7 @@ TEST(UnaryExprTest, GetTypeReturnsBinary) {
 TEST(UnaryExprTest, ToStringReturnsCorrectFormat) {
     auto operand = std::make_unique<NumberExpr>(1.0);
     UnaryExpr expr('!', std::move(operand));
-    EXPECT_EQ(expr.toString(), "!1.000000");
+    EXPECT_EQ(expr.toString(), "!1");
 }
 
 TEST(UnaryExprTest, ToStringWithVariable) {
@@ -231,7 +231,7 @@ TEST(CallExprTest, ToStringWithArgs) {
     args.push_back(std::make_unique<NumberExpr>(1.0));
     args.push_back(std::make_unique<VariableExpr>("y"));
     CallExpr expr("baz", std::move(args));
-    EXPECT_EQ(expr.toString(), "baz(1.000000, y)");
+    EXPECT_EQ(expr.toString(), "baz(1, y)");
 }
 
 TEST(CallExprTest, ToStringWithNestedExprs) {
@@ -240,7 +240,7 @@ TEST(CallExprTest, ToStringWithNestedExprs) {
     auto rhs = std::make_unique<NumberExpr>(3.0);
     args.push_back(std::make_unique<BinaryExpr>('+', std::move(lhs), std::move(rhs)));
     CallExpr expr("sum", std::move(args));
-    EXPECT_EQ(expr.toString(), "sum((2.000000 + 3.000000))");
+    EXPECT_EQ(expr.toString(), "sum((2 + 3))");
 }
 
 TEST(CallExprTest, GetCalleeNameReturnsCorrectName) {
@@ -257,7 +257,7 @@ TEST(CallExprTest, GetArgsReturnsCorrectArgs) {
 
     auto argList = expr.getArgs();
     ASSERT_EQ(argList.size(), 2);
-    EXPECT_EQ(argList[0]->toString(), "10.000000");
+    EXPECT_EQ(argList[0]->toString(), "10");
     EXPECT_EQ(argList[1]->toString(), "x");
 }
 
@@ -431,5 +431,97 @@ TEST_F(ForExprTest, VisitIfExpr) {
         .WillOnce(testing::Return(value));
 
     llvm::Value* result = expr->accept(mockVisitor);
+    EXPECT_EQ(result, value);
+}
+
+// VarExpr tests
+TEST(VariableExprTest, GetTypeReturnsVar) {
+    VarNameVector args;
+    args.push_back(std::make_pair("x", std::make_unique<NumberExpr>(1)));
+    VarExpr expr(std::move(args), nullptr);
+    EXPECT_EQ(expr.getType(), "Var");
+}
+
+TEST(VarExprTest, ToStringBasic) {
+    VarNameVector args;
+    args.push_back(std::make_pair("x", nullptr));
+    VarExpr expr(std::move(args), nullptr);
+    EXPECT_EQ(expr.toString(), "var x");
+}
+
+TEST(VarExprTest, ToStringAssignment) {
+    VarNameVector args;
+    args.push_back(std::make_pair("x", std::make_unique<NumberExpr>(1)));
+    VarExpr expr(std::move(args), nullptr);
+    EXPECT_EQ(expr.toString(), "var x = 1");
+}
+
+TEST(VarExprTest, ToStringAssignmentAndBody) {
+    VarNameVector args;
+    args.push_back(std::make_pair("x", std::make_unique<NumberExpr>(1)));
+    VarExpr expr(std::move(args), std::make_unique<NumberExpr>(1));
+    EXPECT_EQ(expr.toString(), "var x = 1 in\n1");
+}
+
+TEST(VarExprTest, ToStringMultipleVars) {
+    VarNameVector args;
+    args.push_back(std::make_pair("x", std::make_unique<NumberExpr>(1)));
+    args.push_back(std::make_pair("y", std::make_unique<NumberExpr>(2)));
+    args.push_back(std::make_pair("z", nullptr));
+    VarExpr expr(std::move(args), std::make_unique<NumberExpr>(1));
+    EXPECT_EQ(expr.toString(), "var x = 1, y = 2, z in\n1");
+}
+
+TEST(VarExprTest, GetVarNames) {
+    VarNameVector args;
+    args.push_back(std::make_pair("x", std::make_unique<NumberExpr>(1)));
+    args.push_back(std::make_pair("y", std::make_unique<NumberExpr>(2)));
+    args.push_back(std::make_pair("z", nullptr));
+    VarExpr expr(std::move(args), std::make_unique<NumberExpr>(3));
+
+    auto varNames = expr.getVarNames();
+    EXPECT_EQ(varNames[0].first, "x");
+    EXPECT_EQ(static_cast<NumberExpr*>(varNames[0].second)->getValue(), 1);
+    EXPECT_EQ(varNames[1].first, "y");
+    EXPECT_EQ(static_cast<NumberExpr*>(varNames[1].second)->getValue(), 2);
+    EXPECT_EQ(varNames[2].first, "z");
+    EXPECT_FALSE(varNames[2].second);
+}
+
+TEST(VarExprTest, GetBody) {
+    VarNameVector args;
+    args.push_back(std::make_pair("x", std::make_unique<NumberExpr>(1)));
+    args.push_back(std::make_pair("y", std::make_unique<NumberExpr>(2)));
+    args.push_back(std::make_pair("z", nullptr));
+    VarExpr expr(std::move(args), std::make_unique<NumberExpr>(3));
+
+    auto body = expr.getBody();
+    ASSERT_TRUE(body);
+    EXPECT_EQ(body->getType(), "Number");
+    EXPECT_EQ(static_cast<NumberExpr*>(body)->getValue(), 3);
+}
+
+TEST(VarExprTest, AcceptASTVisitor) {
+    MockASTVisitor mockVisitor;
+    VarNameVector args;
+    args.push_back(std::make_pair("x", std::make_unique<NumberExpr>(1)));
+    VarExpr expr(std::move(args), nullptr);
+
+    EXPECT_CALL(mockVisitor, visitVarExpr(testing::Ref(expr)))
+        .Times(1);
+
+    expr.accept(mockVisitor);
+}
+
+TEST_F(MockedValueVisitorTest, VisitVarExpr) {
+    MockValueVisitor mockVisitor;
+    VarNameVector args;
+    args.push_back(std::make_pair("x", std::make_unique<NumberExpr>(1)));
+    VarExpr expr(std::move(args), nullptr);
+
+    EXPECT_CALL(mockVisitor, visitVarExpr(testing::Ref(expr)))
+        .WillOnce(testing::Return(value));
+
+    llvm::Value* result = expr.accept(mockVisitor);
     EXPECT_EQ(result, value);
 }

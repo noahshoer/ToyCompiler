@@ -28,7 +28,9 @@ enum Token : int {
     tok_in = -10,
 
     tok_binary = -11,
-    tok_unary = -12
+    tok_unary = -12,
+
+    tok_var = -13,
 };
 
 static bool isnum(char c) {
@@ -153,6 +155,9 @@ private:
         }
         if (word == "unary") {
             return tok_unary;
+        }
+        if (word == "var") {
+            return tok_var;
         }
         return tok_identifier;
     }

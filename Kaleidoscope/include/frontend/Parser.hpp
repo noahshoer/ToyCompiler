@@ -162,6 +162,8 @@ private:
                 return parseIfExpr();
             case tok_for:
                 return parseForExpr();
+            case tok_var:
+                return parseVarExpr();
         }
     }
 
@@ -283,7 +285,7 @@ private:
     }
 
     std::unique_ptr<Expr> parseIfExpr() {
-        fLexer.advance();
+        fLexer.consume(tok_if);
 
         auto Cond = parseExpression();
         if (!Cond) {
@@ -314,7 +316,7 @@ private:
     }
 
     std::unique_ptr<Expr> parseForExpr() {
-        fLexer.advance();
+        fLexer.consume(tok_for);
 
         if (fLexer.getCurrentToken() != tok_identifier) {
             return logErrorAndReturnNull<ForExpr>("Expected identifier after for");
@@ -381,6 +383,53 @@ private:
             return std::make_unique<UnaryExpr>(curTok, std::move(operand));
         }
         return nullptr;
+    }
+
+    std::unique_ptr<Expr> parseVarExpr() {
+        fLexer.consume(tok_var);
+
+        VarNameVector varNames;
+
+        if (fLexer.getCurrentToken() != tok_identifier) {
+            return logErrorAndReturnNull<VarExpr>("expected identifier after var");
+        }
+
+        while (true) {
+            std::string name = fLexer.getIdentifierStr();
+            fLexer.consume(tok_identifier);
+
+            ExprUPtr init;
+            if (fLexer.getCurrentToken() == '=') {
+                fLexer.advance();
+
+                init = parseExpression();
+                if (!init) return nullptr;
+            }
+
+            varNames.push_back(std::make_pair(name, std::move(init)));
+
+            // End of var list, exist the loop
+            if (fLexer.getCurrentToken() != tok_comma) {
+                break;
+            }
+            fLexer.consume(tok_comma);
+
+            if (fLexer.getCurrentToken() != tok_identifier) {
+                return logErrorAndReturnNull<VarExpr>("epected identifer list after var");
+            }
+        }
+
+        if (fLexer.getCurrentToken() != tok_in) {
+            return logErrorAndReturnNull<VarExpr>("expected 'in' keyword after 'var");
+        }
+        fLexer.consume(tok_in);
+
+        auto body = parseExpression();
+        if (!body) {
+            return nullptr;
+        }
+
+        return std::make_unique<VarExpr>(std::move(varNames), std::move(body));
     }
 };
 } // namespace lang

@@ -13,6 +13,7 @@ public:
     MOCK_METHOD(llvm::Value*, visitCallExpr, (CallExpr &expr), (override));
     MOCK_METHOD(llvm::Value*, visitIfExpr, (IfExpr &expr), (override));
     MOCK_METHOD(llvm::Value*, visitForExpr, (ForExpr &expr), (override));
+    MOCK_METHOD(llvm::Value*, visitVarExpr, (VarExpr &expr), (override));
 
     MOCK_METHOD(llvm::Value*, visitFcnPrototype, (FcnPrototype &proto), (override));
     MOCK_METHOD(llvm::Value*, visitFcn, (Fcn &fcn), (override));

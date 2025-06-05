@@ -14,14 +14,37 @@ llvm::Value* CodegenVisitor::visitNumberExpr(NumberExpr &expr) {
 }
 
 llvm::Value* CodegenVisitor::visitVariableExpr(VariableExpr &expr) {
-    llvm::Value* value = namedValues[expr.getName()];
-    if (!value) {
+    llvm::AllocaInst* allocaInst = namedValues[expr.getName()];
+    if (!allocaInst) {
         logError("Variable '" + expr.getName() + "' is unknown");
+        return nullptr;
     }
-    return value;
+    return builder->CreateLoad(allocaInst->getAllocatedType(), allocaInst,
+                                expr.getName());
 }
 
 llvm::Value* CodegenVisitor::visitBinaryExpr(BinaryExpr &expr) {
+    // Assignments are a special case since the LHS ins't an expression
+    if (expr.getOp() == '=') {
+        VariableExpr* lhse = static_cast<VariableExpr*>(expr.getLHS());
+        if (!lhse) {
+            logError("Destination of '=' must be a variable");
+            return nullptr;
+        }
+        auto val = expr.getRHS()->accept(*this);
+        if (!val) {
+            return nullptr;
+        }
+
+        auto var = namedValues[lhse->getName()];
+        if (!var) {
+            logError("Unkown variable name");
+            return nullptr;
+        }
+        
+        builder->CreateStore(val, var);
+        return val;
+    }
     // Handle code generation for BinaryExpr
     auto lhs = expr.getLHS()->accept(*this);
     auto rhs = expr.getRHS()->accept(*this);
@@ -140,30 +163,35 @@ llvm::Value* CodegenVisitor::visitIfExpr(IfExpr &expr) {
 }
 
 llvm::Value* CodegenVisitor::visitForExpr(ForExpr &expr) {
+    // Insert loop header block after the current block
+    llvm::Function* function = builder->GetInsertBlock()->getParent();
+
+    // Create an alloca for the variable in the entry block
+    llvm::AllocaInst* allocaInst = createEntryBlockAlloca(function,
+                                    expr.getVarName());
+
     // Emit the start code, variable is not in scope
     llvm::Value* startVal = expr.getStart()->accept(*this);
     if (!startVal) {
         return nullptr;
     }
 
-    // Insert loop header block after the current block
-    llvm::Function* function = builder->GetInsertBlock()->getParent();
-    llvm::BasicBlock* preHeaderBB = builder->GetInsertBlock();
-    llvm::BasicBlock* loopBB = llvm::BasicBlock::Create(*context, "loop", function);
+    // Store the value into the alloca
+    builder->CreateStore(startVal, allocaInst);
 
-    // Explicitly add a fal through from the current block
+    // Make the new basic block for the loop header, inserting after current block
+    llvm::BasicBlock* loopBB = llvm::BasicBlock::Create(*context, "loop", 
+                                                    function);
+
+    // Explicitly add a fall through from the current block to the loop
     builder->CreateBr(loopBB);
 
-    builder->SetInsertPoint(loopBB);
-    llvm::PHINode* var = builder->CreatePHI(llvm::Type::getDoubleTy(*context),
-                                            2, expr.getVarName());
-    var->addIncoming(startVal, preHeaderBB);
+    // No PHI Node since using built-in LLVM SSA form. Within the loop, the variable is
+    // defined equal to the PHI node. Shadow the var if it exists
+    llvm::AllocaInst* oldAlloca = namedValues[expr.getVarName()];
+    setNamedValue(expr.getVarName(), allocaInst);
 
-    // Shadow the var if it exists
-    llvm::Value* oldVal = namedValues[expr.getVarName()];
-    setNamedValue(expr.getVarName(), var);
-
-    // Emit the body, ignoring the computed value
+    // Emit the body, ignoring the computed value but not allowing an error
     if (!expr.getBody()->accept(*this)) {
         return nullptr;
     }
@@ -178,27 +206,37 @@ llvm::Value* CodegenVisitor::visitForExpr(ForExpr &expr) {
     } else {
         stepVal = llvm::ConstantFP::get(*context, llvm::APFloat(1.0));
     }
-    llvm::Value* nextVar = builder->CreateFAdd(var, stepVal, "nextvar");
 
     // Compute the end condition
     llvm::Value* endCond = expr.getEnd()->accept(*this);
     if (!endCond) {
         return nullptr;
     }
+
+    // Reload, increment, and restore the alloca. This handles the case where the body
+    // of the loop mutates the variable.
+    llvm::Value* curVar = builder->CreateLoad(allocaInst->getAllocatedType(),
+                                allocaInst, expr.getVarName());
+    llvm::Value* nextVar = builder->CreateFAdd(curVar, stepVal, "nextvar");
+    builder->CreateStore(nextVar, allocaInst);
+    
+    // Convert condition to a bool by comparing not equal to 0.0
     endCond = builder->CreateFCmpONE(endCond, llvm::ConstantFP::get(*context, 
                                     llvm::APFloat(0.0)), "loopcond");
 
-    // Evaluate to check for exit
-    llvm::BasicBlock* loopEndBB = builder->GetInsertBlock();
-    llvm::BasicBlock* afterBB = llvm::BasicBlock::Create(*context, "afterloop", function);
+    // Create the after loop blcok and insert it
+    llvm::BasicBlock* afterBB = llvm::BasicBlock::Create(*context, "afterloop", 
+                                                    function);
+    
+    // Insert conditional branch into the end of loopend BB
     builder->CreateCondBr(endCond, loopBB, afterBB);
+
+    // Any new code inserted in after BB
     builder->SetInsertPoint(afterBB);
 
-    // New PHI entry for back edge
-    var->addIncoming(nextVar, loopEndBB);
     // Restore unshadowed variable
-    if (oldVal) {
-        setNamedValue(expr.getVarName(), oldVal);
+    if (oldAlloca) {
+        setNamedValue(expr.getVarName(), oldAlloca);
     } else {
         namedValues.erase(expr.getVarName());
     }
@@ -242,8 +280,14 @@ llvm::Value* CodegenVisitor::visitFcn(Fcn &fcn) {
 
     namedValues.clear();
     for (auto &arg : function->args()) {
+        // Create an alloca for the arg
+        llvm::AllocaInst* argAllocaInst = createEntryBlockAlloca(function, arg.getName());
+
+        // Store value in the alloca
+        builder->CreateStore(&arg, argAllocaInst);
+
         // Map the argument names to their corresponding LLVM values
-        setNamedValue(arg.getName().str(), &arg);
+        setNamedValue(arg.getName().str(), argAllocaInst);
     }
 
     if (auto retVal = fcn.getBody()->accept(*this)) {
@@ -254,10 +298,53 @@ llvm::Value* CodegenVisitor::visitFcn(Fcn &fcn) {
         llvm::verifyFunction(*function);
 
         // Optimize the function
-        fpm->run(*function, *fam);
+        if (fpm) {
+            fpm->run(*function, *fam);
+        }
         return function;
     }
 
     function->eraseFromParent(); // If the body is invalid, remove the function
     return function;
+}
+
+llvm::Value* CodegenVisitor::visitVarExpr(VarExpr &expr) {
+    std::vector<llvm::AllocaInst*> oldBindings;
+
+    llvm::Function* function = builder->GetInsertBlock()->getParent();
+
+    // Register all vars and emit their initializer
+    for (const auto& var : expr.getVarNames()) {
+        const std::string& varName = var.first;
+        Expr* init = var.second;
+
+        // Emit the initalizer before adding the variable to scope to
+        // prevent the initializer from referencing the variable itself,
+        // and permit stuff like:
+        // var a = 1 in 
+        //  var a = a in ... # refers to outer 'a'
+        llvm::Value* initVal;
+        if (init) {
+            initVal = init->accept(*this);
+            if (!initVal) {
+                return nullptr;
+            }
+        } else {
+            // Default initialize to 0.0
+            initVal = llvm::ConstantFP::get(*context, 
+                                            llvm::APFloat(0.0));
+        }
+
+        llvm::AllocaInst* allocaInst = createEntryBlockAlloca(function, varName);
+
+        oldBindings.push_back(namedValues[varName]);
+        setNamedValue(varName, allocaInst);
+    }
+
+    llvm::Value* bodyVal = expr.getBody()->accept(*this);
+    for (int i = 0; i < expr.getVarNames().size(); ++i) {
+        setNamedValue(expr.getVarNames()[i].first, oldBindings[i]);
+    }
+
+    return bodyVal;
 }

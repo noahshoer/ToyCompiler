@@ -1,5 +1,7 @@
 #include "gtest/gtest.h"
 
+#include "llvm/Passes/PassBuilder.h"
+
 #include "AST/Expr.hpp"
 #include "AST/Fcn.hpp"
 #include "AST/Precedence.hpp"
@@ -22,6 +24,14 @@ protected:
         builder = std::make_unique<IRBuilder<>>(context);
 
         visitor = std::make_unique<CodegenVisitor>(&context, module.get(), builder.get());
+
+        // Setup a basic basic block
+        auto funcType = FunctionType::get(Type::getVoidTy(context), 
+                                            false);
+        auto func = Function::Create(funcType, Function::ExternalLinkage, 
+                                                    "dummy", module.get());
+        auto BB = BasicBlock::Create(context, "entry", func);
+        builder->SetInsertPoint(BB);
     }
 
     void TearDown() override {
@@ -51,13 +61,17 @@ TEST_F(CodegenVisitorTest, VisitNumberExprReturnsDouble) {
     EXPECT_TRUE(actVal->getType()->isDoubleTy());
 }
 
+// TODO: Builder has no insert block
 TEST_F(CodegenVisitorTest, VisitVariableExprReturnsCorrectVal) {
-    Value* dummy = ConstantFP::get(context, APFloat(3.14));
-    visitor->setNamedValue("x", dummy);
+    auto allocaInst = visitor->createEntryBlockAlloca(
+                                    builder->GetInsertBlock()->getParent(), "x");
+    visitor->setNamedValue("x", allocaInst);
 
     VariableExpr expr("x");
     Value* val = visitor->visitVariableExpr(expr);
-    EXPECT_EQ(val, dummy);
+    ASSERT_NE(val, nullptr);
+    EXPECT_TRUE(llvm::isa<llvm::LoadInst>(val));
+    EXPECT_EQ(*val->getName().data(), 'x');
 }
 
 TEST_F(CodegenVisitorTest, VisitForNonExistentVarReturnsNull) {
@@ -93,6 +107,33 @@ TEST_F(CodegenVisitorTest, VisitBinaryExprLT) {
     ASSERT_NE(val, nullptr);
     EXPECT_TRUE(val->getType()->isDoubleTy());
 }
+
+TEST_F(CodegenVisitorTest, VisitBinaryAssignment) {
+    auto allocaInst = visitor->createEntryBlockAlloca(
+                                    builder->GetInsertBlock()->getParent(), "x");
+    visitor->setNamedValue("x", allocaInst);
+
+    BinaryExpr expr = BinaryExpr('=', std::make_unique<VariableExpr>("x"), 
+                                        std::make_unique<NumberExpr>(1));
+    Value* val = visitor->visitBinaryExpr(expr);
+    ASSERT_NE(val, nullptr);
+    EXPECT_TRUE(val->getType()->isDoubleTy());
+}
+
+TEST_F(CodegenVisitorTest, VisitBinaryAssignmentNoVar) {
+    BinaryExpr expr = BinaryExpr('=', std::make_unique<VariableExpr>("x"), 
+                                        std::make_unique<NumberExpr>(1));
+    Value* val = visitor->visitBinaryExpr(expr);
+    EXPECT_FALSE(val);
+}
+
+TEST_F(CodegenVisitorTest, VisitBinaryAssignmentNotToVariableExpr) {
+    BinaryExpr expr = BinaryExpr('=', std::make_unique<NumberExpr>(0), 
+                                        std::make_unique<NumberExpr>(1));
+    Value* val = visitor->visitBinaryExpr(expr);
+    EXPECT_FALSE(val);
+}
+
 
 TEST_F(CodegenVisitorTest, VisitBinaryExprNonOp) {
     BinaryExpr expr = makeBinaryExpr('a');
@@ -177,8 +218,7 @@ TEST_F(CodegenVisitorTest, VisitCallExprBadArg) {
     EXPECT_EQ(val, nullptr);
 }
 
-// TODO: Setup JIT for testing
-TEST_F(CodegenVisitorTest, DISABLED_VisitIfExpr) {
+TEST_F(CodegenVisitorTest, VisitIfExpr) {
     IfExpr expr(std::make_unique<BinaryExpr>(makeBinaryExpr('<')), std::make_unique<NumberExpr>(1), std::make_unique<NumberExpr>(2));
     Value* val = visitor->visitIfExpr(expr);
     ASSERT_NE(val, nullptr);
@@ -191,27 +231,26 @@ TEST_F(CodegenVisitorTest, VisitIfExprBadCond) {
     ASSERT_EQ(val, nullptr);
 }
 
-TEST_F(CodegenVisitorTest, DISABLED_VisitIfExprBadThen) {
+TEST_F(CodegenVisitorTest, VisitIfExprBadThen) {
     IfExpr expr(std::make_unique<NumberExpr>(1), std::make_unique<VariableExpr>("@"), std::make_unique<NumberExpr>(2));
     Value* val = visitor->visitIfExpr(expr);
     ASSERT_EQ(val, nullptr);
 }
 
-TEST_F(CodegenVisitorTest, DISABLED_VisitIfExprBadElse) {
+TEST_F(CodegenVisitorTest, VisitIfExprBadElse) {
     IfExpr expr(std::make_unique<NumberExpr>(1), std::make_unique<NumberExpr>(2), std::make_unique<VariableExpr>("@"));
     Value* val = visitor->visitIfExpr(expr);
     ASSERT_EQ(val, nullptr);
 }
 
-// TODO: Dependent on JIT
-TEST_F(CodegenVisitorTest, DISABLED_VisitForExpr) {
+TEST_F(CodegenVisitorTest, VisitForExpr) {
     std::string loopId = "i";
     auto Start = std::make_unique<NumberExpr>(0);
     auto End = std::make_unique<NumberExpr>(10);
     auto Step = std::make_unique<NumberExpr>(1);
     std::vector<std::unique_ptr<Expr>> args;
     args.push_back(std::make_unique<NumberExpr>(1.0));
-    auto Body = std::make_unique<CallExpr>("foo", std::move(args));
+    auto Body = std::make_unique<NumberExpr>(1);
     auto expr = std::make_unique<ForExpr>(loopId, std::move(Start), std::move(End),
             std::move(Step), std::move(Body));
 
@@ -220,7 +259,7 @@ TEST_F(CodegenVisitorTest, DISABLED_VisitForExpr) {
     EXPECT_TRUE(isa<Constant>(val));
 }
 
-TEST_F(CodegenVisitorTest, DISABLED_VisitForExprNullStep) {
+TEST_F(CodegenVisitorTest, VisitForExprNullStep) {
     std::string loopId = "i";
     auto Start = std::make_unique<NumberExpr>(0);
     auto End = std::make_unique<NumberExpr>(10);
@@ -228,7 +267,7 @@ TEST_F(CodegenVisitorTest, DISABLED_VisitForExprNullStep) {
     auto Step = nullptr;
     std::vector<std::unique_ptr<Expr>> args;
     args.push_back(std::make_unique<NumberExpr>(1.0));
-    auto Body = std::make_unique<CallExpr>("foo", std::move(args));
+    auto Body = std::make_unique<NumberExpr>(1);
     auto expr = std::make_unique<ForExpr>(loopId, std::move(Start), std::move(End),
             std::move(Step), std::move(Body));
 
@@ -252,7 +291,7 @@ TEST_F(CodegenVisitorTest, VisitForExprBadStart) {
     ASSERT_EQ(val, nullptr);
 }
 
-TEST_F(CodegenVisitorTest, DISABLED_VisitForExprBadEnd) {
+TEST_F(CodegenVisitorTest, VisitForExprBadEnd) {
     std::string loopId = "i";
     auto Start = std::make_unique<NumberExpr>(0);
     auto End = std::make_unique<VariableExpr>("j");
@@ -267,7 +306,7 @@ TEST_F(CodegenVisitorTest, DISABLED_VisitForExprBadEnd) {
     ASSERT_EQ(val, nullptr);
 }
 
-TEST_F(CodegenVisitorTest, DISABLED_VisitForExprBadStep) {
+TEST_F(CodegenVisitorTest, VisitForExprBadStep) {
     std::string loopId = "i";
     auto Start = std::make_unique<NumberExpr>(0);
     auto End = std::make_unique<NumberExpr>(10);
@@ -282,7 +321,7 @@ TEST_F(CodegenVisitorTest, DISABLED_VisitForExprBadStep) {
     ASSERT_EQ(val, nullptr);
 }
 
-TEST_F(CodegenVisitorTest, DISABLED_VisitForExprBadBody) {
+TEST_F(CodegenVisitorTest, VisitForExprBadBody) {
     std::string loopId = "i";
     auto Start = std::make_unique<NumberExpr>(0);
     auto End = std::make_unique<NumberExpr>(10);
@@ -297,6 +336,55 @@ TEST_F(CodegenVisitorTest, DISABLED_VisitForExprBadBody) {
     ASSERT_EQ(val, nullptr);
 }
 
+TEST_F(CodegenVisitorTest, VisitVarExpr) {
+    VarNameVector args;
+    args.push_back(std::make_pair("x", std::make_unique<NumberExpr>(1)));
+    VarExpr expr(std::move(args), std::make_unique<NumberExpr>(3));
+
+    auto val = visitor->visitVarExpr(expr);
+    ASSERT_NE(val, nullptr);
+    EXPECT_TRUE(isa<Constant>(val));
+}
+
+TEST_F(CodegenVisitorTest, VisitVarExprMultipleVars) {
+    VarNameVector args;
+    args.push_back(std::make_pair("x", std::make_unique<NumberExpr>(1)));
+    args.push_back(std::make_pair("y", std::make_unique<NumberExpr>(2)));
+    VarExpr expr(std::move(args), std::make_unique<NumberExpr>(3));
+
+    auto val = visitor->visitVarExpr(expr);
+    ASSERT_NE(val, nullptr);
+    EXPECT_TRUE(isa<Constant>(val));
+}
+
+TEST_F(CodegenVisitorTest, VisitVarExprNullInit) {
+    VarNameVector args;
+    args.push_back(std::make_pair("z", nullptr));
+    VarExpr expr(std::move(args), std::make_unique<NumberExpr>(3));
+
+    auto val = visitor->visitVarExpr(expr);
+    ASSERT_NE(val, nullptr);
+    EXPECT_TRUE(isa<Constant>(val));
+}
+
+TEST_F(CodegenVisitorTest, VisitVarExprCantAssignItself) {
+    VarNameVector args;
+    args.push_back(std::make_pair("x", std::make_unique<VariableExpr>("x")));
+    VarExpr expr(std::move(args), std::make_unique<NumberExpr>(3));
+
+    auto val = visitor->visitVarExpr(expr);
+    ASSERT_FALSE(val);
+}
+
+TEST_F(CodegenVisitorTest, VisitVarExprBadBody) {
+    VarNameVector args;
+    args.push_back(std::make_pair("x", std::make_unique<NumberExpr>(1)));
+    VarExpr expr(std::move(args), std::make_unique<VariableExpr>("q"));
+
+    auto val = visitor->visitVarExpr(expr);
+    ASSERT_FALSE(val);
+}
+
 TEST_F(CodegenVisitorTest, VisitFcnPrototypeCreatesFunction) {
     std::vector<std::string> args = {"x", "y"};
     FcnPrototype proto("bar", args);
@@ -305,9 +393,26 @@ TEST_F(CodegenVisitorTest, VisitFcnPrototypeCreatesFunction) {
     EXPECT_TRUE(isa<Function>(val));
 }
 
-// TODO: Get this working, the FPM isn't working in the test
-// environment
-TEST_F(CodegenVisitorTest, DISABLED_VisitFcnCreatesFunction) {
+TEST_F(CodegenVisitorTest, VisitFcnCreatesFunction) {
+    std::vector<std::string> args = {"x", "y"};
+    auto proto = std::make_unique<FcnPrototype>("baz", args);
+    auto body = std::make_unique<BinaryExpr>(makeBinaryExpr('+'));
+    Fcn fcn(std::move(proto), std::move(body));
+    Value* val = visitor->visitFcn(fcn);
+    ASSERT_NE(val, nullptr);
+    EXPECT_TRUE(isa<Function>(val));
+}
+
+TEST_F(CodegenVisitorTest, VisitFcnCreatesFunctionWithFPM) {
+    auto fpm = std::make_unique<FunctionPassManager>();
+    auto fam = std::make_unique<FunctionAnalysisManager>();
+
+    PassBuilder pb;
+    pb.registerFunctionAnalyses(*fam);
+
+    visitor->setFAM(fam.get());
+    visitor->setFPM(fpm.get());
+
     std::vector<std::string> args = {"x", "y"};
     auto proto = std::make_unique<FcnPrototype>("baz", args);
     auto body = std::make_unique<BinaryExpr>(makeBinaryExpr('+'));

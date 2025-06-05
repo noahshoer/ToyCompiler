@@ -12,6 +12,7 @@ public:
     virtual void visitCallExpr(CallExpr &expr) = 0;
     virtual void visitIfExpr(IfExpr &expr) = 0;
     virtual void visitForExpr(ForExpr &expr) = 0;
+    virtual void visitVarExpr(VarExpr &expr) = 0;
 
     virtual void visitFcnPrototype(FcnPrototype &proto) = 0;
     virtual void visitFcn(Fcn &fcn) = 0;
