@@ -9,4 +9,7 @@ foreach(test_src ${UNITTEST_SOURCES})
 
     message(STATUS "Adding test: ${test_name}")
     gtest_discover_tests(${test_name})
+    set_target_properties(${test_name} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests
+)
 endforeach()

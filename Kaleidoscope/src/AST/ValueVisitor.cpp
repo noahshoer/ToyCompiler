@@ -16,8 +16,7 @@ llvm::Value* CodegenVisitor::visitNumberExpr(NumberExpr &expr) {
 llvm::Value* CodegenVisitor::visitVariableExpr(VariableExpr &expr) {
     llvm::AllocaInst* allocaInst = namedValues[expr.getName()];
     if (!allocaInst) {
-        logError("Variable '" + expr.getName() + "' is unknown");
-        return nullptr;
+        return logError("Variable '" + expr.getName() + "' is unknown");
     }
     return builder->CreateLoad(allocaInst->getAllocatedType(), allocaInst,
                                 expr.getName());
@@ -28,8 +27,7 @@ llvm::Value* CodegenVisitor::visitBinaryExpr(BinaryExpr &expr) {
     if (expr.getOp() == '=') {
         VariableExpr* lhse = static_cast<VariableExpr*>(expr.getLHS());
         if (!lhse) {
-            logError("Destination of '=' must be a variable");
-            return nullptr;
+            return logError("Destination of '=' must be a variable");
         }
         auto val = expr.getRHS()->accept(*this);
         if (!val) {
@@ -38,8 +36,7 @@ llvm::Value* CodegenVisitor::visitBinaryExpr(BinaryExpr &expr) {
 
         auto var = namedValues[lhse->getName()];
         if (!var) {
-            logError("Unkown variable name");
-            return nullptr;
+            return logError("Unkown variable name");
         }
         
         builder->CreateStore(val, var);
@@ -93,13 +90,11 @@ llvm::Value* CodegenVisitor::visitUnaryExpr(UnaryExpr &expr) {
 llvm::Value* CodegenVisitor::visitCallExpr(CallExpr &expr) {
     llvm::Function* callee = PrototypeRegistry::getFunction(expr.getCalleeName(), *this);
     if (!callee) {
-        logError("Unknown function called: " + expr.getCalleeName());
-        return nullptr;
+        return logError("Unknown function called: " + expr.getCalleeName());
     }
 
     if (callee->arg_size() != expr.getNumArgs()) {
-        logError("Incorrect number of arguments passed to function: " + expr.getCalleeName());
-        return nullptr;
+        return logError("Incorrect number of arguments passed to function: " + expr.getCalleeName());
     }
 
     std::vector<llvm::Value*> args;

@@ -44,7 +44,7 @@ public:
     ///     <expression>
     std::unique_ptr<Fcn> parseTopLevelExpr() {
         if (auto expr = parseExpression()) {
-            auto proto = std::make_unique<FcnPrototype>("__anon_expr", std::vector<std::string>());
+            auto proto = std::make_unique<FcnPrototype>("main", std::vector<std::string>());
             return std::make_unique<Fcn>(std::move(proto), std::move(expr));
         }
         return nullptr;
@@ -55,7 +55,8 @@ private:
 
     template<typename R>
     inline std::unique_ptr<R> logErrorAndReturnNull(const char* str) {
-        fprintf(stderr, "ParseError: %s\n", str);
+        (void)str;
+        // fprintf(stderr, "ParseError: %s\n", str);
         return nullptr;
     }
     

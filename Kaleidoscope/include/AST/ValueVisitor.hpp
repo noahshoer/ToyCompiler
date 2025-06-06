@@ -76,7 +76,9 @@ private:
     // induction variables
     std::map<std::string, llvm::AllocaInst*> namedValues;
 
-    void logError(const std::string &message) {
-        fprintf(stderr, "Error: %s\n", message.c_str());
+    llvm::Value* logError(const std::string &message) {
+        (void)message;
+        // fprintf(stderr, "Error: %s\n", message.c_str());
+        return nullptr;
     }
 };

@@ -1,5 +1,13 @@
 file(GLOB_RECURSE KALEIDOSCOPE_SOURCES *.cpp)
-list(REMOVE_ITEM KALEIDOSCOPE_SOURCES "${CMAKE_CURRENT_LIST_DIR}/parser_cli.cpp")
+
+set(PROGRAMS
+    look
+    reflect)
+
+foreach(exe_src ${PROGRAMS})
+    list(REMOVE_ITEM KALEIDOSCOPE_SOURCES "${CMAKE_CURRENT_LIST_DIR}/${exe_src}.cpp")
+endforeach()
+
 
 if(KALEIDOSCOPE_SOURCES)
     add_library(kaleidoscope_lib ${KALEIDOSCOPE_SOURCES})
@@ -31,5 +39,7 @@ else()
     )
 endif()
 
-add_executable(parser parser_cli.cpp)
-target_link_libraries(parser kaleidoscope_lib)
+foreach(exe_src ${PROGRAMS})
+    add_executable(${exe_src} ${exe_src}.cpp)
+    target_link_libraries(${exe_src} kaleidoscope_lib)
+endforeach()
