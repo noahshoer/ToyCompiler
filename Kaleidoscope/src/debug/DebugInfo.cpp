@@ -2,6 +2,9 @@
 #include "AST/Expr.hpp"
 #include "debug/DebugInfo.hpp"
 
+std::unique_ptr<llvm::DIBuilder> DBuilder;
+DebugInfo KSDbgInfo;
+
 void DebugInfo::emitLocation(llvm::IRBuilder<>* builder, Expr* expr) {
     if (!expr) {
         return builder->SetCurrentDebugLocation(llvm::DebugLoc());

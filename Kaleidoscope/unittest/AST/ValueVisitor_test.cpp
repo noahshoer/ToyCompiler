@@ -7,6 +7,7 @@
 #include "AST/Precedence.hpp"
 #include "AST/PrototypeRegistry.hpp"
 #include "AST/ValueVisitor.hpp"
+#include "debug/DebugInfo.hpp"
 
 using namespace llvm;
 
@@ -32,6 +33,12 @@ protected:
                                                     "dummy", module.get());
         auto BB = BasicBlock::Create(context, "entry", func);
         builder->SetInsertPoint(BB);
+
+        // Setup debug info
+        DBuilder = std::make_unique<DIBuilder>(*module.get());
+        KSDbgInfo.TheCU = DBuilder->createCompileUnit(dwarf::DW_LANG_C,
+            DBuilder->createFile("ValueVisitor_test.cpp", "."), 
+            "reflect", false, "", 0);
     }
 
     void TearDown() override {
@@ -393,9 +400,7 @@ TEST_F(CodegenVisitorTest, VisitFcnPrototypeCreatesFunction) {
     EXPECT_TRUE(isa<Function>(val));
 }
 
-// TODO: Figure out how to fake the debug file, or just add a debugging control
-// so that these tests don't have to deal with it
-TEST_F(CodegenVisitorTest, DISABLED_VisitFcnCreatesFunction) {
+TEST_F(CodegenVisitorTest, VisitFcnCreatesFunction) {
     std::vector<std::string> args = {"x", "y"};
     auto proto = std::make_unique<FcnPrototype>("baz", args);
     auto body = std::make_unique<BinaryExpr>(makeBinaryExpr('+'));
@@ -405,7 +410,7 @@ TEST_F(CodegenVisitorTest, DISABLED_VisitFcnCreatesFunction) {
     EXPECT_TRUE(isa<Function>(val));
 }
 
-TEST_F(CodegenVisitorTest, DISABLED_VisitFcnCreatesFunctionWithFPM) {
+TEST_F(CodegenVisitorTest, VisitFcnCreatesFunctionWithFPM) {
     auto fpm = std::make_unique<FunctionPassManager>();
     auto fam = std::make_unique<FunctionAnalysisManager>();
 
@@ -424,7 +429,18 @@ TEST_F(CodegenVisitorTest, DISABLED_VisitFcnCreatesFunctionWithFPM) {
     EXPECT_TRUE(isa<Function>(val));
 }
 
-TEST_F(CodegenVisitorTest, DISABLED_VisitFcnBadBody) {
+TEST_F(CodegenVisitorTest, VisitBinaryOpFcnSetsPrecedence) {
+    std::vector<std::string> args = {"x", "y"};
+    auto proto = std::make_unique<FcnPrototype>("binary`", args, true, 17);
+    auto body = std::make_unique<NumberExpr>(1);
+    Fcn fcn(std::move(proto), std::move(body));
+    Value* val = visitor->visitFcn(fcn);
+    
+    EXPECT_EQ(BIN_OP_PRECEDENCE['`'], 17);
+    BIN_OP_PRECEDENCE.erase('`');
+}
+
+TEST_F(CodegenVisitorTest, VisitFcnBadBody) {
     std::vector<std::string> args = {"x", "y"};
     auto proto = std::make_unique<FcnPrototype>("baz", args);
     auto body = std::make_unique<VariableExpr>("a");
@@ -433,14 +449,14 @@ TEST_F(CodegenVisitorTest, DISABLED_VisitFcnBadBody) {
     EXPECT_EQ(val, nullptr);
 }
 
-TEST_F(CodegenVisitorTest, DISABLED_VisitBinaryOpFcnSetsPrecedence) {
+
+
+TEST_F(CodegenVisitorTest, VisitBinaryOpFcnBadBodyDoesNotSetPrecedence) {
     std::vector<std::string> args = {"x", "y"};
     auto proto = std::make_unique<FcnPrototype>("binary`", args, true, 17);
-    // Use bad body on purpose to bail out and check precedence table
     auto body = std::make_unique<VariableExpr>("a");
     Fcn fcn(std::move(proto), std::move(body));
     Value* val = visitor->visitFcn(fcn);
     
-    EXPECT_EQ(BIN_OP_PRECEDENCE['`'], 17);
-    BIN_OP_PRECEDENCE.erase('`');
+    EXPECT_EQ(BIN_OP_PRECEDENCE['`'], 0);
 }

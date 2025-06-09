@@ -6,7 +6,7 @@
 
 class Expr;
 
-static std::unique_ptr<llvm::DIBuilder> DBuilder;
+extern std::unique_ptr<llvm::DIBuilder> DBuilder;
 
 struct DebugInfo {
     llvm::DICompileUnit *TheCU;
@@ -17,6 +17,6 @@ struct DebugInfo {
     llvm::DIType *getDoubleTy();
 };
 
-static struct DebugInfo KSDbgInfo;
+extern DebugInfo KSDbgInfo;
 
 llvm::DISubroutineType* createFunctionType(unsigned numArgs);

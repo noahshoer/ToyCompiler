@@ -275,25 +275,31 @@ llvm::Value* CodegenVisitor::visitFcn(Fcn &fcn) {
     builder->SetInsertPoint(bb);
 
     // Debug info
-    llvm::DIFile* unit = DBuilder->createFile(KSDbgInfo.TheCU->getFilename(),
+    llvm::DIFile* unit;
+    unsigned lineNo;
+    unsigned scopeLine;
+    llvm::DISubprogram* sp;
+    if (DBuilder) {
+        unit = DBuilder->createFile(KSDbgInfo.TheCU->getFilename(),
                                             KSDbgInfo.TheCU->getDirectory());
     
-    llvm::DIScope* FContext = unit;
-    unsigned lineNo = p.getLine();
-    unsigned scopeLine = lineNo;
-    llvm::DISubprogram* sp = DBuilder->createFunction(
-        FContext, p.getName(), llvm::StringRef(), unit, lineNo, 
-        createFunctionType(function->arg_size()), scopeLine,
-            llvm::DINode::FlagPrototyped, llvm::DISubprogram::SPFlagDefinition);
-    function->setSubprogram(sp);
+        llvm::DIScope* FContext = unit;
+        lineNo = p.getLine();
+        scopeLine = lineNo;
+        sp = DBuilder->createFunction(
+            FContext, p.getName(), llvm::StringRef(), unit, lineNo, 
+            createFunctionType(function->arg_size()), scopeLine,
+                llvm::DINode::FlagPrototyped, llvm::DISubprogram::SPFlagDefinition);
+        function->setSubprogram(sp);
 
-    // Push the current scope
-    KSDbgInfo.LexicalBlocks.push_back(sp);
+        // Push the current scope
+        KSDbgInfo.LexicalBlocks.push_back(sp);
 
-    // Unset the location for the prologue emission (leading instructions with no
-    // location in a function are considered part of the prologue and the debugger
-    // will run past them when breaking on a function)
-    KSDbgInfo.emitLocation(builder, nullptr);
+        // Unset the location for the prologue emission (leading instructions with no
+        // location in a function are considered part of the prologue and the debugger
+        // will run past them when breaking on a function)
+        KSDbgInfo.emitLocation(builder, nullptr);
+    }
 
     namedValues.clear();
     unsigned argIdx = 0;
@@ -301,15 +307,17 @@ llvm::Value* CodegenVisitor::visitFcn(Fcn &fcn) {
         // Create an alloca for the arg
         llvm::AllocaInst* argAllocaInst = createEntryBlockAlloca(function, arg.getName());
 
-        // Create a debug descriptor for the variable
-        llvm::DILocalVariable* d = DBuilder->createParameterVariable(
-            sp, arg.getName(), ++argIdx, unit, lineNo, 
-            KSDbgInfo.getDoubleTy(), true);
+        if (DBuilder) {
+            // Create a debug descriptor for the variable
+            llvm::DILocalVariable* d = DBuilder->createParameterVariable(
+                sp, arg.getName(), ++argIdx, unit, lineNo, 
+                KSDbgInfo.getDoubleTy(), true);
 
-        DBuilder->insertDeclare(argAllocaInst, d, 
-            DBuilder->createExpression(), 
-            llvm::DILocation::get(sp->getContext(), lineNo, 0, sp),
-            builder->GetInsertBlock());
+            DBuilder->insertDeclare(argAllocaInst, d, 
+                DBuilder->createExpression(), 
+                llvm::DILocation::get(sp->getContext(), lineNo, 0, sp),
+                builder->GetInsertBlock());
+        }
 
         // Store value in the alloca
         builder->CreateStore(&arg, argAllocaInst);
@@ -318,14 +326,18 @@ llvm::Value* CodegenVisitor::visitFcn(Fcn &fcn) {
         setNamedValue(arg.getName().str(), argAllocaInst);
     }
 
-    KSDbgInfo.emitLocation(builder, fcn.getBody());
+    if (DBuilder) {
+        KSDbgInfo.emitLocation(builder, fcn.getBody());
+    }
 
     if (auto retVal = fcn.getBody()->accept(*this)) {
         // If the function body returns a value, create a return instruction
         builder->CreateRet(retVal);
 
-        // Pop off the lexical block for the function
-        KSDbgInfo.LexicalBlocks.pop_back();
+        if (DBuilder) {
+            // Pop off the lexical block for the function
+            KSDbgInfo.LexicalBlocks.pop_back();
+        }
 
         // Validates the generated code
         llvm::verifyFunction(*function);
@@ -339,12 +351,14 @@ llvm::Value* CodegenVisitor::visitFcn(Fcn &fcn) {
 
     function->eraseFromParent(); // If the body is invalid, remove the function
     if (p.isBinaryOp()) {
-        BIN_OP_PRECEDENCE.erase(fcn.getPrototype()->getOperatorName());
+        BIN_OP_PRECEDENCE.erase(p.getOperatorName());
     }
 
-    // Pop off the lexical block for the function since it was
-    // added unconditionally
-    KSDbgInfo.LexicalBlocks.pop_back();
+    if (DBuilder) {
+        // Pop off the lexical block for the function since it was
+        // added unconditionally
+        KSDbgInfo.LexicalBlocks.pop_back();   
+    }
 
     return nullptr;
 }
