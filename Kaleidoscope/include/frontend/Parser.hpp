@@ -43,8 +43,10 @@ public:
     /// Parses a top-level expression, which is of the form:
     ///     <expression>
     std::unique_ptr<Fcn> parseTopLevelExpr() {
+        SourceLocation fnLoc = fLexer.getCurrentLoc();
         if (auto expr = parseExpression()) {
             auto proto = std::make_unique<FcnPrototype>("main", std::vector<std::string>());
+            proto->setSourceLoc(fnLoc);
             return std::make_unique<Fcn>(std::move(proto), std::move(expr));
         }
         return nullptr;
@@ -69,8 +71,12 @@ private:
         }
 
         std::string idName = fLexer.getIdentifierStr();
+        SourceLocation litLoc = fLexer.getCurrentLoc();
+
         if (fLexer.advance() != tok_open_paren) {
-            return std::make_unique<VariableExpr>(idName);
+            auto varExpr = std::make_unique<VariableExpr>(idName);
+            varExpr->setSourceLoc(litLoc);
+            return std::move(varExpr);
         }
 
         std::vector<std::unique_ptr<Expr>> args;
@@ -83,7 +89,9 @@ private:
         }
 
         fLexer.advance();
-        return std::make_unique<CallExpr>(idName, std::move(args));
+        auto callExpr = std::make_unique<CallExpr>(idName, std::move(args));
+        callExpr->setSourceLoc(litLoc);
+        return std::move(callExpr);
     }
 
     bool gatherCallExprArgs(std::vector<std::unique_ptr<Expr>>& args) {
@@ -200,6 +208,7 @@ private:
             }
 
             int binOp = fLexer.getCurrentToken();
+            SourceLocation binLoc = fLexer.getCurrentLoc();
             fLexer.consume(Token(binOp)); // Consume the operator token
 
             auto RHS = parseUnary();
@@ -214,6 +223,7 @@ private:
             }
 
             LHS = std::make_unique<BinaryExpr>(binOp, std::move(LHS), std::move(RHS));
+            LHS->setSourceLoc(binLoc);
         }
     }
 
@@ -222,6 +232,8 @@ private:
     ///     <binary><CHAR> number? (id id)
     std::unique_ptr<FcnPrototype> parsePrototype() {
         std::string fcnName;
+
+        SourceLocation fnLoc = fLexer.getCurrentLoc();
 
         unsigned Kind = 0; // 0 = ID, 1 = Unary, 2 = Binary
         unsigned BinaryPrecedence = 30;
@@ -281,11 +293,14 @@ private:
         if (Kind && argNames.size() != Kind) {
             return logErrorAndReturnNull<FcnPrototype>("Invalid number of operands for operator");
         }
-        return std::make_unique<FcnPrototype>(fcnName, std::move(argNames), 
+        auto fcnProto = std::make_unique<FcnPrototype>(fcnName, std::move(argNames), 
                                     Kind != 0, BinaryPrecedence);
+        fcnProto->setSourceLoc(fnLoc);
+        return std::move(fcnProto);
     }
 
     std::unique_ptr<Expr> parseIfExpr() {
+        SourceLocation ifLoc = fLexer.getCurrentLoc();
         fLexer.consume(tok_if);
 
         auto Cond = parseExpression();
@@ -313,7 +328,9 @@ private:
             return nullptr;
         }
 
-        return std::make_unique<IfExpr>(std::move(Cond), std::move(Then), std::move(Else));
+        auto ifExpr = std::make_unique<IfExpr>(std::move(Cond), std::move(Then), std::move(Else));
+        ifExpr->setSourceLoc(ifLoc);
+        return std::move(ifExpr);
     }
 
     std::unique_ptr<Expr> parseForExpr() {

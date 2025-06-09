@@ -4,6 +4,8 @@
 #include <iostream>
 #include <string>
 
+#include "debug/SourceLocation.hpp"
+
 // Return token [0-255] for unknown chars, otherwise a known token
 namespace lang {
 enum Token : int {
@@ -49,6 +51,10 @@ public:
         return fCurTok;
     }
 
+    const SourceLocation& getCurrentLoc() const {
+        return fCurLoc;
+    }
+
     Token advance() {
         return fCurTok = getTok();
     }
@@ -75,18 +81,36 @@ private:
     Token fLastChar = Token(' ');
     double fNumVal; // Filled in if tok_number
 
+    SourceLocation fCurLoc;
+    SourceLocation fLexLoc = {1, 0};
+
     int getNextChar() {
         return fInput.get();
     }
+
+    Token next() {
+        int lastChar = getNextChar();
+
+        if (lastChar == '\n' || lastChar == '\r') {
+            fLexLoc.Line++;
+            fLexLoc.Col = 0;
+        } else {
+            fLexLoc.Col++;
+        }
+        return Token(lastChar);
+    }
+
     Token getTok() {
         // Skip whitespace
         while (isspace(fLastChar)) {
-            fLastChar = Token(getNextChar());
+            fLastChar = next();
         }
+
+        fCurLoc = fLexLoc;
 
         if (std::isalpha(fLastChar)) {
             fIdentiferStr = (char)fLastChar;
-            while (std::isalnum((fLastChar = Token(getNextChar())))) {
+            while (std::isalnum((fLastChar = next()))) {
                 fIdentiferStr += (char)fLastChar;
             }
             return getTokFromWord(fIdentiferStr);
@@ -98,7 +122,7 @@ private:
             int decimal = 0;
             do {
                 NumStr += fLastChar;
-                fLastChar = Token(getNextChar());
+                fLastChar = next();
                 if (fLastChar == '.') {
                     decimal++;
                     assert(decimal < 2 && "Cannot handle multiple decimals in a number");
@@ -111,7 +135,7 @@ private:
         if (fLastChar == '#') {
             // Comment until end of line
             do {
-                fLastChar = Token(getNextChar());
+                fLastChar = next();
             } while (!iseol(fLastChar));
 
             if (fLastChar != EOF) {
@@ -124,7 +148,7 @@ private:
         }
 
         Token ThisChar = fLastChar;
-        fLastChar = Token(getNextChar()); // Get next character
+        fLastChar = next(); // Get next character
         return ThisChar;
     }
 
