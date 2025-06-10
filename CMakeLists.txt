@@ -37,15 +37,18 @@ add_compile_options(-Wno-deprecated)
 if(APPLE)
   # Homebrew default path (adjust for Intel if needed)
   set(LLVM_DIR "/opt/homebrew/opt/llvm/lib/cmake/llvm" CACHE PATH "Path to LLVMConfig.cmake")
-  find_package(LLVM REQUIRED CONFIG)
-
-  message(STATUS "Found LLVM version ${LLVM_PACKAGE_VERSION} on macOS")
-  message(STATUS "LLVM include dirs: ${LLVM_INCLUDE_DIRS}")
-  message(STATUS "LLVM libraries: ${LLVM_LIBRARY_DIRS}")
-
-  include_directories(${LLVM_INCLUDE_DIRS})
-  add_definitions(${LLVM_DEFINITIONS})
+elseif(WIN32)
+  set(LLVM_DIR "C:/msys64/ucrt64/lib" CACHE PATH "Path to LLVMConfig.cmake")
 endif()
+
+find_package(LLVM REQUIRED CONFIG)
+
+message(STATUS "Found LLVM version ${LLVM_PACKAGE_VERSION} on macOS")
+message(STATUS "LLVM include dirs: ${LLVM_INCLUDE_DIRS}")
+message(STATUS "LLVM libraries: ${LLVM_LIBRARY_DIRS}")
+
+include_directories(${LLVM_INCLUDE_DIRS})
+add_definitions(${LLVM_DEFINITIONS})
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build." FORCE)

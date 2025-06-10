@@ -10,6 +10,7 @@
 #include "llvm/Transforms/Scalar/Reassociate.h"
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include "llvm/Transforms/Utils/Mem2Reg.h"
+#include <cstdarg>
 
 #include "AST/PrototypeRegistry.hpp"
 #include "AST/ValueVisitor.hpp"

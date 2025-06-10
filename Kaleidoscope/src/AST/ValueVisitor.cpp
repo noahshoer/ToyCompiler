@@ -26,7 +26,7 @@ llvm::Value* CodegenVisitor::visitVariableExpr(VariableExpr &expr) {
 llvm::Value* CodegenVisitor::visitBinaryExpr(BinaryExpr &expr) {
     // Assignments are a special case since the LHS ins't an expression
     if (expr.getOp() == '=') {
-        VariableExpr* lhse = static_cast<VariableExpr*>(expr.getLHS());
+        VariableExpr* lhse = dynamic_cast<VariableExpr*>(expr.getLHS());
         if (!lhse) {
             return logError("Destination of '=' must be a variable");
         }
