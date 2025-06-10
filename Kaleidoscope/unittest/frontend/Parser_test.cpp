@@ -2,6 +2,9 @@
 #include <sstream>
 #include "frontend/Parser.hpp"
 
+#include "llvm/Support/TargetSelect.h"
+#include "frontend/Driver.hpp"
+
 using namespace lang;
 
 TEST(Parser, ParseNumberExpr) {
@@ -607,4 +610,19 @@ TEST(Parser, ParseVarExprNoCommaInList) {
 
     auto fcn = parser.parseTopLevelExpr();
     EXPECT_FALSE(fcn);
+}
+
+TEST(ParserSystemTest, VarInLoop) {
+    InitializeNativeTarget();
+    InitializeNativeTargetAsmPrinter();
+    InitializeNativeTargetAsmParser();
+    std::istringstream input("def fibi(x)\n"
+        "var a = 1, b = 2, c in\n"
+        "(for i = 3, i < x in\n"
+        "c = i);\n"
+        "fibi(10);");
+    
+    Driver driver("test", input, false);
+    driver.initilizeModuleAndManagers();
+    driver.MainLoop();
 }

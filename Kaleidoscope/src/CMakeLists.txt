@@ -16,19 +16,52 @@ if(KALEIDOSCOPE_SOURCES)
     )
 
     set(LLVM_COMPONENTS
+        armasmparser
+        armcodegen
+        armdesc
+        armdisassembler
+        arminfo
+        armutils
+        analysis
+        asmparser
+        asmprinter
+        codegen
         core
+        debuginfodwarf
+        executionengine
+        jitlink
+        instcombine
+        irreader
+        mc
+        mcjit
+        mcparser
         native
-        orcjit)
+        nativecodegen
+        object
+        orcjit
+        orcshared
+        orctargetprocess
+        passes
+        runtimedyld
+        scalaropts
+        support
+        target
+        targetparser
+        transformutils)
 
-    # if (APPLE)
-    #     list(APPEND LLVM_COMPONENTS
-    #         aarch64asmparser
-    #         aarch64codegen)
-    # else()
-    #     list(APPEND LLVM_COMPONENTS
-    #         x86asmparser
-    #         x86codegen)
-    # endif()
+    if (APPLE)
+        list(APPEND LLVM_COMPONENTS
+            aarch64asmparser
+            aarch64codegen
+            aarch64desc
+            aarch64disassembler
+            aarch64info
+            aarch64utils)
+    else()
+        list(APPEND LLVM_COMPONENTS
+            x86asmparser
+            x86codegen)
+    endif()
 
     llvm_map_components_to_libnames(LLVM_LIBS ${LLVM_COMPONENTS})
     target_link_libraries(kaleidoscope_lib PUBLIC ${LLVM_LIBS})

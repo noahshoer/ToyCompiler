@@ -15,18 +15,24 @@
 #define LLVM_EXECUTIONENGINE_ORC_KALEIDOSCOPEJIT_H
 
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ExecutionEngine/JITSymbol.h"
+// #include "llvm/ExecutionEngine/JITSymbol.h"
 #include "llvm/ExecutionEngine/Orc/CompileUtils.h"
 #include "llvm/ExecutionEngine/Orc/Core.h"
 #include "llvm/ExecutionEngine/Orc/ExecutionUtils.h"
 #include "llvm/ExecutionEngine/Orc/ExecutorProcessControl.h"
 #include "llvm/ExecutionEngine/Orc/IRCompileLayer.h"
+#include "llvm/ExecutionEngine/Orc/IRTransformLayer.h"
 #include "llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h"
 #include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
 #include "llvm/ExecutionEngine/Orc/Shared/ExecutorSymbolDef.h"
 #include "llvm/ExecutionEngine/SectionMemoryManager.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/Transforms/InstCombine/InstCombine.h"
+#include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Scalar/GVN.h"
+
 #include <memory>
 
 namespace llvm {
@@ -41,6 +47,7 @@ private:
 
   RTDyldObjectLinkingLayer ObjectLayer;
   IRCompileLayer CompileLayer;
+  IRTransformLayer TransformLayer;
 
   JITDylib &MainJD;
 
@@ -52,14 +59,15 @@ public:
                     []() { return std::make_unique<SectionMemoryManager>(); }),
         CompileLayer(*this->ES, ObjectLayer,
                      std::make_unique<ConcurrentIRCompiler>(std::move(JTMB))),
+        TransformLayer(*this->ES, CompileLayer, optimizeModule),
         MainJD(this->ES->createBareJITDylib("<main>")) {
     MainJD.addGenerator(
         cantFail(DynamicLibrarySearchGenerator::GetForCurrentProcess(
             DL.getGlobalPrefix())));
-    if (JTMB.getTargetTriple().isOSBinFormatCOFF()) {
-      ObjectLayer.setOverrideObjectFlagsWithResponsibilityFlags(true);
-      ObjectLayer.setAutoClaimResponsibilityForObjectSymbols(true);
-    }
+    // if (JTMB.getTargetTriple().isOSBinFormatCOFF()) {
+    //   ObjectLayer.setOverrideObjectFlagsWithResponsibilityFlags(true);
+    //   ObjectLayer.setAutoClaimResponsibilityForObjectSymbols(true);
+    // }
   }
 
   ~KaleidoscopeJIT() {
@@ -97,6 +105,24 @@ public:
 
   Expected<ExecutorSymbolDef> lookup(StringRef Name) {
     return ES->lookup({&MainJD}, Mangle(Name.str()));
+  }
+
+private:
+  static Expected<ThreadSafeModule> optimizeModule(ThreadSafeModule M, const MaterializationResponsibility& R) {
+    M.withModuleDo([](Module &M) {
+      auto fpm = std::make_unique<legacy::FunctionPassManager>(&M);
+
+      fpm->add(createInstructionCombiningPass());
+      fpm->add(createReassociatePass());
+      fpm->add(createGVNPass());
+      fpm->add(createCFGSimplificationPass());
+      fpm->doInitialization();
+
+      for (auto& f : M) {
+        fpm->run(f);
+      }
+    });
+    return std::move(M);
   }
 };
 

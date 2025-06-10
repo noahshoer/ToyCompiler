@@ -1,13 +1,7 @@
-def binary : 1 (x y) y;
 
-# Iterative fib.
 def fibi(x)
-  var a = 1, b = 1, c in
+  var a = 1, b = 2, c in
   (for i = 3, i < x in
-     c = a + b :
-     a = b :
-     b = c) :
-  b;
+  c = i);
 
-# Call it.
-fibi(10);
+fibi(7);
